@@ -10,8 +10,10 @@
 services:
   zeroclaw:
     image: ghcr.io/theonlyhennygod/zeroclaw:latest
-    # Or build locally:
-    # build: .
+    # Or build locally (dev image includes Tailscale support):
+    # build:
+    #   context: .
+    #   target: dev
     container_name: zeroclaw
     restart: unless-stopped
     
@@ -28,13 +30,26 @@ services:
       # Optional: Model override
       # - ZEROCLAW_MODEL=anthropic/claude-sonnet-4-20250514
       
+      # Optional: Tailscale authentication (when using tailscale build target)
+      # Get auth key from: https://login.tailscale.com/admin/settings/keys
+      # - TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY:-}
+      # - TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME:-zeroclaw}
+      
     volumes:
       # Persist workspace and config
       - zeroclaw-data:/data
+      # Persist Tailscale state (when using tailscale build target)
+      # - tailscale-data:/var/lib/tailscale
       
     ports:
       # Gateway API port
       - "3000:3000"
+    
+    # Uncomment when using tailscale build target:
+    # devices:
+    #   - /dev/net/tun:/dev/net/tun
+    # cap_add:
+    #   - net_admin
     
     # Health check
     healthcheck:
@@ -46,3 +61,5 @@ services:
 
 volumes:
   zeroclaw-data:
+  # Uncomment when using tailscale build target:
+  # tailscale-data:

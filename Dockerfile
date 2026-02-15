@@ -46,14 +46,17 @@ default_temperature = 0.7
 port = 3000
 host = "[::]"
 allow_public_bind = true
+
+[tunnel]
+provider = "none"
 EOF
 
 RUN chown -R 65534:65534 /zeroclaw-data
 
-# ── Stage 3: Development Runtime (Debian) ────────────────────
+# ── Stage 3: Development Runtime (Debian with Tailscale) ────────────────────
 FROM debian:bookworm-slim AS dev
 
-# Install runtime dependencies + basic debug tools
+# Install runtime dependencies + debug tools + Tailscale support
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssl \
@@ -61,7 +64,16 @@ RUN apt-get update && apt-get install -y \
     git \
     iputils-ping \
     vim \
+    jq \
+    iproute2 \
+    iptables \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Tailscale
+RUN curl -fsSL https://tailscale.com/install.sh | sh
+
+# Create Tailscale directories
+RUN mkdir -p /var/lib/tailscale /var/run/tailscale
 
 COPY --from=permissions /zeroclaw-data /zeroclaw-data
 COPY --from=builder /app/target/release/zeroclaw /usr/local/bin/zeroclaw
@@ -69,6 +81,10 @@ COPY --from=builder /app/target/release/zeroclaw /usr/local/bin/zeroclaw
 # Overwrite minimal config with DEV template (Ollama defaults)
 COPY dev/config.template.toml /zeroclaw-data/.zeroclaw/config.toml
 RUN chown 65534:65534 /zeroclaw-data/.zeroclaw/config.toml
+
+# Copy entrypoint script for Tailscale authentication
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Environment setup
 # Use consistent workspace path
@@ -85,8 +101,8 @@ ENV ZEROCLAW_GATEWAY_PORT=3000
 WORKDIR /zeroclaw-data
 USER 65534:65534
 EXPOSE 3000
-ENTRYPOINT ["zeroclaw"]
-CMD ["gateway", "--port", "3000", "--host", "[::]"]
+VOLUME ["/var/lib/tailscale"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # ── Stage 4: Production Runtime (Distroless) ─────────────────
 FROM gcr.io/distroless/cc-debian12:nonroot AS release
