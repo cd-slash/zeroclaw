@@ -1162,6 +1162,73 @@ async fn main() -> Result<()> {
             }
         }
 
+        Commands::Docs { docs_command } => {
+            use memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+
+            let mut store = ManagedDocStore::open(&config.workspace_dir)?;
+            match docs_command {
+                DocsCommands::List => {
+                    let docs = store.list_doc_ids()?;
+                    if docs.is_empty() {
+                        println!("No managed documents initialized.");
+                    } else {
+                        for doc in docs {
+                            println!("{doc}");
+                        }
+                    }
+                    Ok(())
+                }
+                DocsCommands::Read { doc } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    match store.read_doc(&doc_id)? {
+                        Some(content) => {
+                            print!("{content}");
+                            Ok(())
+                        }
+                        None => {
+                            bail!("Managed document not initialized: {doc_id}");
+                        }
+                    }
+                }
+                DocsCommands::Append {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    store.append_block(&doc_id, section.as_deref(), &content, "cli:docs_append")?;
+                    println!("Appended content to {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::ReplaceSection {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    store.replace_section(
+                        &doc_id,
+                        &section,
+                        &content,
+                        "cli:docs_replace_section",
+                    )?;
+                    println!("Updated section '{section}' in {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::Materialize => {
+                    let count = store.materialize_all_docs()?;
+                    println!("Materialized {count} managed docs");
+                    Ok(())
+                }
+            }
+        }
+
         Commands::Migrate { migrate_command } => {
             migration::handle_command(migrate_command, &config).await
         }
