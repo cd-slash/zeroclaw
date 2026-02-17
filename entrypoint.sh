@@ -326,6 +326,10 @@ fi
 # Start docsd (managed-docs daemon) as separate user for strong write boundary
 DOCSD_SOCKET="${DOCSD_SOCKET:-/zeroclaw-data/workspace/.managed-docs/docsd.sock}"
 DOCSD_DIR="$(dirname "$DOCSD_SOCKET")"
+# docsd materialization may replace/create markdown files under workspace root.
+# Keep workspace group-writable for zeroclaw/docs boundary users.
+chown zeroclaw:zeroclawdocs /zeroclaw-data/workspace 2>/dev/null || true
+chmod 0775 /zeroclaw-data/workspace 2>/dev/null || true
 mkdir -p "$DOCSD_DIR"
 chown -R docsd:zeroclawdocs "$DOCSD_DIR"
 chmod 0770 "$DOCSD_DIR"
@@ -340,7 +344,7 @@ if [ -n "$AGENT_CONFIG_DIR" ] && [ -d "$AGENT_CONFIG_DIR" ]; then
         if [ -f "$src_path" ] && [ ! -f "$dst_path" ]; then
             cp "$src_path" "$dst_path"
             chown docsd:zeroclawdocs "$dst_path" 2>/dev/null || true
-            chmod 0444 "$dst_path" 2>/dev/null || true
+            chmod 0644 "$dst_path" 2>/dev/null || true
         fi
     done
 
@@ -353,7 +357,7 @@ if [ -n "$AGENT_CONFIG_DIR" ] && [ -d "$AGENT_CONFIG_DIR" ]; then
             if [ ! -f "$dst_path" ]; then
                 cp "$skill_file" "$dst_path"
                 chown docsd:zeroclawdocs "$dst_path" 2>/dev/null || true
-                chmod 0444 "$dst_path" 2>/dev/null || true
+                chmod 0644 "$dst_path" 2>/dev/null || true
             fi
         done < <(find "$AGENT_CONFIG_DIR/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f -print0)
     fi
@@ -362,12 +366,12 @@ fi
 for doc in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md BOOTSTRAP.md MEMORY.md; do
     if [ -f "/zeroclaw-data/workspace/$doc" ]; then
         chown docsd:zeroclawdocs "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
-        chmod 0444 "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
+        chmod 0644 "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
     fi
 done
 if [ -d "/zeroclaw-data/workspace/skills" ]; then
     find "/zeroclaw-data/workspace/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f \
-        -exec chown docsd:zeroclawdocs {} \; -exec chmod 0444 {} \; 2>/dev/null || true
+        -exec chown docsd:zeroclawdocs {} \; -exec chmod 0644 {} \; 2>/dev/null || true
 fi
 
 if ! pgrep -u docsd -f "zeroclaw docsd" >/dev/null 2>&1; then

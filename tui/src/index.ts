@@ -119,7 +119,6 @@ const composeArgsForAgent = (agentName: string): string[] => [
   "-f",
   "docker-compose.yml",
 ];
-
 const THEME = {
   bg: "#0b1018",
   panel: "#142033",
