@@ -41,7 +41,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 # Check if agent exists
 check_agent() {
     local agent="$1"
-    if [[ ! -f "$PROJECT_DIR/.agents/.${agent}.env" ]]; then
+    if [[ ! -f "$PROJECT_DIR/.agents/${agent}/.env" ]]; then
         log_error "Agent '$agent' not found"
         exit 1
     fi
@@ -87,7 +87,7 @@ check_litestream_status() {
     
     if [[ "$litestream_enabled" != "true" ]]; then
         log_warn "Litestream is not enabled for agent '$agent'"
-        log_info "Set ZEROCLAW_LITESTREAM_ENABLED=true in .agents/.${agent}.env"
+        log_info "Set ZEROCLAW_LITESTREAM_ENABLED=true in .agents/${agent}/.env"
         return 1
     fi
     
@@ -133,7 +133,7 @@ restore() {
     
     # Source the agent env file
     set -a
-    source "$PROJECT_DIR/.agents/.${agent}.env"
+    source "$PROJECT_DIR/.agents/${agent}/.env"
     set +a
     
     minio_endpoint="${MINIO_ENDPOINT:-}"

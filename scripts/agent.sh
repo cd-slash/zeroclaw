@@ -58,8 +58,8 @@ log_error() {
 # Check if agent config exists
 check_agent_config() {
     local agent="$1"
-    if [[ ! -f "$AGENTS_DIR/.${agent}.env" ]]; then
-        log_error "Agent '$agent' not found. Config missing: $AGENTS_DIR/.${agent}.env"
+    if [[ ! -f "$AGENTS_DIR/${agent}/.env" ]]; then
+        log_error "Agent '$agent' not found. Config missing: $AGENTS_DIR/${agent}/.env"
         log_info "Use './scripts/agent.sh create $agent' to create a new agent"
         exit 1
     fi
@@ -97,14 +97,14 @@ list_agents() {
         return
     fi
     
-    # Get all agents from hidden env files in .agents directory
+    # Get all agents from subdirectories containing .env files
     local all_agents=()
-    for env_file in "$AGENTS_DIR"/.[^.]*.env; do
-        if [[ -f "$env_file" ]]; then
+    for agent_dir in "$AGENTS_DIR"/*/; do
+        if [[ -f "${agent_dir}/.env" ]]; then
             local agent_name
-            agent_name=$(basename "$env_file" .env)
-            agent_name="${agent_name#.}"  # Remove leading dot
-            if [[ "$agent_name" != "shared" ]]; then
+            agent_name=$(basename "$agent_dir")
+            # Skip shared and templates directories
+            if [[ "$agent_name" != "shared" && "$agent_name" != "templates" ]]; then
                 all_agents+=("$agent_name")
             fi
         fi
@@ -213,8 +213,8 @@ show_status() {
 # Create a new agent
 create_agent() {
     local agent="$1"
-    local env_file="$AGENTS_DIR/.${agent}.env"
-    local agent_dir="$AGENTS_DIR/.${agent}"
+    local agent_dir="$AGENTS_DIR/${agent}"
+    local env_file="${agent_dir}/.env"
     
     if [[ -f "$env_file" ]]; then
         log_error "Agent '$agent' already exists: $env_file"
@@ -227,7 +227,10 @@ create_agent() {
         ((port++))
     done
     
-    # Create agent config (hidden file)
+    # Create agent directory
+    mkdir -p "$agent_dir"
+    
+    # Create agent config
     cat > "$env_file" << EOF
 # =============================================================================
 # Agent: ${agent}
@@ -261,8 +264,9 @@ ZEROCLAW_MEMORY_AUTO_SAVE=true
 AGENT_CONFIG_DIR=/agent-config
 EOF
     
-    # Create agent identity directory
+    # Create agent subdirectories
     mkdir -p "$agent_dir/skills"
+    mkdir -p "$agent_dir/tools"
     
     # Copy template files
     local templates_dir="$AGENTS_DIR/templates"
@@ -284,7 +288,9 @@ EOF
     
     log_success "Created agent: $agent"
     log_info "  Config file: $env_file"
-    log_info "  Identity directory: $agent_dir/"
+    log_info "  Agent directory: $agent_dir/"
+    log_info "  - Identity files: $agent_dir/*.md"
+    log_info "  - Custom tools: $agent_dir/tools/ (mounted to /usr/local/bin/agent-tools)"
     log_info ""
     log_info "To start this agent:"
     log_info "  ./scripts/agent.sh start ${agent}"
@@ -292,19 +298,24 @@ EOF
     log_info "Or with docker compose directly:"
     log_info "  docker compose -f docker-compose.agents.yml --profile ${agent} up -d"
     log_info ""
-    log_info "Note: For persistent deployment, add to docker-compose.agents.yml:"
-    log_info "  (Copy handy/gordon/zoe as templates - just change the profile name and port)"
+    log_info "For custom container images per agent:"
+    log_info "  1. Create $agent_dir/Dockerfile with your tools"
+    log_info "  2. Update docker-compose.agents.yml to use:"
+    log_info "     build:"
+    log_info "       context: ."
+    log_info "       dockerfile: .agents/${agent}/Dockerfile"
     log_info ""
     log_info "Next steps:"
     log_info "  1. Review and customize identity files in $agent_dir/"
-    log_info "  2. Start with: ./scripts/agent.sh start ${agent}"
+    log_info "  2. Add custom tools to $agent_dir/tools/ (optional)"
+    log_info "  3. Start with: ./scripts/agent.sh start ${agent}"
 }
 
 # Remove an agent (destructive!)
 remove_agent() {
     local agent="$1"
-    local env_file="$AGENTS_DIR/.${agent}.env"
-    local agent_dir="$AGENTS_DIR/.${agent}"
+    local agent_dir="$AGENTS_DIR/${agent}"
+    local env_file="${agent_dir}/.env"
     
     if [[ ! -f "$env_file" ]]; then
         log_error "Agent '$agent' not found"
@@ -326,12 +337,9 @@ remove_agent() {
     # Stop if running
     docker compose -f "$COMPOSE_FILE" --profile "$agent" down --volumes 2>/dev/null || true
     
-    # Remove config
-    rm -f "$env_file"
-    
-    # Remove identity directory
+    # Remove agent directory (contains .env and all identity files)
     if [[ -d "$agent_dir" ]]; then
-        log_warn "Removing identity directory: $agent_dir"
+        log_warn "Removing agent directory: $agent_dir"
         rm -rf "$agent_dir"
     fi
     
@@ -433,9 +441,9 @@ Examples:
   ./scripts/agent.sh create mybot            # Create new agent 'mybot'
 
 Configuration:
-  Agent configs are in: .agents/.<agent_name>.env (hidden files)
+  Agent configs are in: .agents/<agent_name>/.env
   Shared config is in:  .agents/shared.env
-  Agent identity files: .agents/.<agent_name>/*.md
+  Agent directory:      .agents/<agent_name>/ (contains identity files, tools/)
   Compose file:         docker-compose.agents.yml
 
 For more information, see: docs/multi-agent-setup.md

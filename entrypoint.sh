@@ -162,6 +162,12 @@ update_config() {
 # Run config update
 update_config
 
+# Run agent-specific setup (packages, tools, etc.)
+# This happens once per container start, then is cached
+if [[ -f "/usr/local/bin/agent-setup.sh" ]]; then
+    /usr/local/bin/agent-setup.sh
+fi
+
 # Start Tailscale if configured
 if [ -n "$TAILSCALE_AUTHKEY" ] && command -v tailscale &> /dev/null; then
     if ! pgrep -x "tailscaled" > /dev/null; then
