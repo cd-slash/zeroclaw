@@ -35,6 +35,9 @@ credentials.json
 .agents/.*.env
 .agents/*/.env
 .agents/.shared.env
+.agents/*/.build-tools/*
+!.agents/*/.build-tools/
+!.agents/*/.build-tools/.gitkeep
 
 # Ignore skills/tools directories (user-created content)
 .agents/*/skills/*
