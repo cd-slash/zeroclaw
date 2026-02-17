@@ -238,6 +238,9 @@ AGENT_ROLE=general
 # Override .shared.env defaults only when needed.
 ZEROCLAW_MODEL=anthropic/claude-sonnet-4-20250514
 ZEROCLAW_TEMPERATURE=0.7
+
+# Optional: override Tailscale device hostname.
+# TAILSCALE_HOSTNAME=${agent}
 EOF
     
     # Create agent subdirectories
