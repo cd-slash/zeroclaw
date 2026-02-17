@@ -648,6 +648,22 @@ fn check_workspace(config: &Config, items: &mut Vec<DiagItem>) {
     // Key workspace files
     check_file_exists(ws, "SOUL.md", false, cat, items);
     check_file_exists(ws, "AGENTS.md", false, cat, items);
+
+    // Managed docs service (docsd) health probe
+    if matches!(
+        crate::memory::classify_memory_backend(&config.memory.backend),
+        crate::memory::MemoryBackendKind::Sqlite | crate::memory::MemoryBackendKind::Lucid
+    ) {
+        match crate::memory::docsd_client::probe_docsd(ws) {
+            Ok(message) => items.push(DiagItem::ok(cat, message)),
+            Err(e) => items.push(DiagItem::warn(
+                cat,
+                format!(
+                    "managed-docs daemon probe failed: {e} (set DOCSD_SOCKET or run inside active agent container)"
+                ),
+            )),
+        }
+    }
 }
 
 fn check_file_exists(

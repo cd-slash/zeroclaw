@@ -27,7 +27,9 @@ pub mod cron_run;
 pub mod cron_runs;
 pub mod cron_update;
 pub mod delegate;
-pub mod file_edit;
+pub mod docs_append;
+pub mod docs_read;
+pub mod docs_replace_section;
 pub mod file_read;
 pub mod file_write;
 pub mod git_operations;
@@ -64,7 +66,9 @@ pub use cron_run::CronRunTool;
 pub use cron_runs::CronRunsTool;
 pub use cron_update::CronUpdateTool;
 pub use delegate::DelegateTool;
-pub use file_edit::FileEditTool;
+pub use docs_append::DocsAppendTool;
+pub use docs_read::DocsReadTool;
+pub use docs_replace_section::DocsReplaceSectionTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use git_operations::GitOperationsTool;
@@ -208,6 +212,9 @@ pub fn all_tools_with_runtime(
         Arc::new(FileEditTool::new(security.clone())),
         Arc::new(GlobSearchTool::new(security.clone())),
         Arc::new(ContentSearchTool::new(security.clone())),
+        Arc::new(DocsReadTool::new(workspace_dir.to_path_buf())),
+        Arc::new(DocsAppendTool::new(workspace_dir.to_path_buf())),
+        Arc::new(DocsReplaceSectionTool::new(workspace_dir.to_path_buf())),
         Arc::new(CronAddTool::new(config.clone(), security.clone())),
         Arc::new(CronListTool::new(config.clone())),
         Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
