@@ -8,3 +8,9 @@
 # binary = "example-cli"
 # description = "Example CLI description"
 # sha256 = ""
+
+# [apt]
+# packages = ["jq", "ripgrep"]
+
+# [bun]
+# packages = ["typescript", "tsx"]
