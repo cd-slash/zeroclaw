@@ -92,10 +92,17 @@ RUN mkdir -p /var/lib/tailscale /var/run/tailscale /etc/litestream
 COPY --from=builder /zeroclaw-data /zeroclaw-data
 COPY --from=builder /app/zeroclaw /usr/local/bin/zeroclaw
 
-# Create zeroclaw user for running zeroclaw and Tailscale SSH access
-# Using UID 1000 (standard first user) instead of reusing nobody (65534)
-RUN useradd -m -u 1000 -s /bin/bash -d /zeroclaw-data zeroclaw && \
-    chown -R zeroclaw:zeroclaw /zeroclaw-data /var/lib/tailscale /var/run/tailscale
+# Create dedicated users:
+# - zeroclaw: agent runtime user
+# - docsd: managed-docs writer daemon user
+# Both share zeroclawdocs group so zeroclaw can connect to docsd socket.
+RUN groupadd -g 1010 zeroclawdocs && \
+    useradd -m -u 1000 -s /bin/bash -d /zeroclaw-data -G zeroclawdocs zeroclaw && \
+    useradd -M -u 1001 -s /usr/sbin/nologin -g zeroclawdocs docsd && \
+    mkdir -p /zeroclaw-data/workspace/.managed-docs && \
+    chown -R zeroclaw:zeroclaw /zeroclaw-data /var/lib/tailscale /var/run/tailscale && \
+    chown -R docsd:zeroclawdocs /zeroclaw-data/workspace/.managed-docs && \
+    chmod 0770 /zeroclaw-data/workspace/.managed-docs
 
 # Overwrite minimal config with DEV template (Ollama defaults)
 COPY dev/config.template.toml /zeroclaw-data/.zeroclaw/config.toml
@@ -149,6 +156,7 @@ ENV HOME=/zeroclaw-data
 ENV PROVIDER="ollama"
 ENV ZEROCLAW_MODEL="llama3.2"
 ENV ZEROCLAW_GATEWAY_PORT=3000
+ENV DOCSD_SOCKET=/zeroclaw-data/workspace/.managed-docs/docsd.sock
 
 # Note: API_KEY is intentionally NOT set here to avoid confusion.
 # It is set in config.toml as the Ollama URL.

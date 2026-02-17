@@ -936,6 +936,18 @@ mod tests {
     }
 
     #[test]
+    fn resolve_provider_credential_prefers_provider_env_over_generic_env() {
+        std::env::set_var("MINIMAX_API_KEY", "env-minimax-key");
+        std::env::set_var("ZEROCLAW_API_KEY", "generic-key");
+
+        let resolved = resolve_provider_credential("minimax-intl", None);
+        assert_eq!(resolved, Some("env-minimax-key".to_string()));
+
+        std::env::remove_var("MINIMAX_API_KEY");
+        std::env::remove_var("ZEROCLAW_API_KEY");
+    }
+
+    #[test]
     fn resolve_provider_credential_prefers_explicit_over_env() {
         std::env::set_var("MINIMAX_API_KEY", "env-minimax-key");
         std::env::set_var("ZEROCLAW_API_KEY", "generic-key");

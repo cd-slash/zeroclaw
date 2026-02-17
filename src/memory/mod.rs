@@ -1,8 +1,11 @@
 pub mod backend;
 pub mod chunker;
+pub mod docsd;
+pub mod docsd_client;
 pub mod embeddings;
 pub mod hygiene;
 pub mod lucid;
+pub mod managed_docs;
 pub mod markdown;
 pub mod none;
 pub mod postgres;

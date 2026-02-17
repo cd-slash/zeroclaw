@@ -188,6 +188,45 @@ if [ -n "$TAILSCALE_AUTHKEY" ] && command -v tailscale &> /dev/null; then
     chown zeroclaw:zeroclaw /var/run/tailscale/tailscaled.sock 2>/dev/null || true
 fi
 
+# Start docsd (managed-docs daemon) as separate user for strong write boundary
+DOCSD_SOCKET="${DOCSD_SOCKET:-/zeroclaw-data/workspace/.managed-docs/docsd.sock}"
+DOCSD_DIR="$(dirname "$DOCSD_SOCKET")"
+mkdir -p "$DOCSD_DIR"
+chown -R docsd:zeroclawdocs "$DOCSD_DIR"
+chmod 0770 "$DOCSD_DIR"
+
+for doc in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md BOOTSTRAP.md MEMORY.md; do
+    if [ -f "/zeroclaw-data/workspace/$doc" ]; then
+        chown docsd:zeroclawdocs "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
+        chmod 0664 "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
+    fi
+done
+if [ -d "/zeroclaw-data/workspace/skills" ]; then
+    find "/zeroclaw-data/workspace/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f \
+        -exec chown docsd:zeroclawdocs {} \; -exec chmod 0664 {} \; 2>/dev/null || true
+fi
+
+if ! pgrep -u docsd -f "zeroclaw docsd" >/dev/null 2>&1; then
+    echo "[entrypoint] Starting docsd at $DOCSD_SOCKET"
+    DOCSD_CMD="exec zeroclaw docsd --socket '$DOCSD_SOCKET'"
+    if [ -n "$AGENT_CONFIG_DIR" ] && [ -d "$AGENT_CONFIG_DIR" ]; then
+        DOCSD_CMD="$DOCSD_CMD --scaffold-dir '$AGENT_CONFIG_DIR'"
+    fi
+    su -m docsd -s /bin/bash -c "$DOCSD_CMD" &
+fi
+
+# Wait for docsd socket before launching agent runtime
+for i in $(seq 1 50); do
+    if [ -S "$DOCSD_SOCKET" ]; then
+        chmod 0660 "$DOCSD_SOCKET" 2>/dev/null || true
+        chown docsd:zeroclawdocs "$DOCSD_SOCKET" 2>/dev/null || true
+        break
+    fi
+    sleep 0.1
+done
+
+export DOCSD_SOCKET
+
 # Drop to zeroclaw user and run zeroclaw
 # Use 'su -m' to preserve environment variables (API keys, config)
 if [ $# -eq 0 ]; then

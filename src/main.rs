@@ -36,6 +36,7 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use dialoguer::{Input, Password};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -216,6 +217,22 @@ enum Commands {
         skill_command: SkillCommands,
     },
 
+    /// Manage event-sourced markdown docs (AGENTS/SOUL/TOOLS/IDENTITY/USER/HEARTBEAT/BOOTSTRAP/MEMORY and skills)
+    Docs {
+        #[command(subcommand)]
+        docs_command: DocsCommands,
+    },
+
+    /// Run managed-docs daemon (docsd)
+    Docsd {
+        /// Unix socket path for docsd IPC
+        #[arg(long)]
+        socket: Option<String>,
+        /// Optional scaffold directory for first-run seeding
+        #[arg(long)]
+        scaffold_dir: Option<String>,
+    },
+
     /// Migrate data from other agent runtimes
     Migrate {
         #[command(subcommand)]
@@ -336,6 +353,40 @@ enum MigrateCommands {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum DocsCommands {
+    /// List managed document streams stored in SQLite
+    List,
+    /// Read rendered content for a managed document
+    Read {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+    },
+    /// Append markdown content to a managed document (preferred for MEMORY.md)
+    Append {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+        /// Optional section title; writes as "## <section>" + content block
+        #[arg(long)]
+        section: Option<String>,
+        /// Markdown content to append
+        content: String,
+    },
+    /// Replace or create a level-2 section in a managed document
+    ReplaceSection {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+        /// Section title matching heading text after "## "
+        section: String,
+        /// Replacement markdown body
+        content: String,
+    },
+    /// Re-render all managed docs from the event log into workspace files
+    Materialize,
+    /// Probe docsd socket health for managed-docs operations
+    Doctor,
 }
 
 #[derive(Subcommand, Debug)]
@@ -519,12 +570,68 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Commands::Docsd {
+        socket,
+        scaffold_dir,
+    } = &cli.command
+    {
+        let workspace_dir = std::env::var("ZEROCLAW_WORKSPACE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/zeroclaw-data/workspace"));
+        let socket_path = socket
+            .as_ref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| memory::docsd_client::default_socket_path(&workspace_dir));
+        let scaffold_path = scaffold_dir.as_ref().map(PathBuf::from);
+        return memory::docsd::serve(&socket_path, &workspace_dir, scaffold_path.as_deref());
+    }
+
     // All other commands need config loaded first
     let mut config = Config::load_or_init()?;
     config.apply_env_overrides();
 
+    let should_prepare_managed_docs = matches!(
+        &cli.command,
+        Commands::Agent { .. }
+            | Commands::Gateway { .. }
+            | Commands::Daemon { .. }
+            | Commands::Docs { .. }
+            | Commands::Channel {
+                channel_command: ChannelCommands::Start,
+            }
+    );
+
+    if should_prepare_managed_docs
+        && matches!(
+            memory::classify_memory_backend(&config.memory.backend),
+            memory::MemoryBackendKind::Sqlite | memory::MemoryBackendKind::Lucid
+        )
+    {
+        let scaffold_dir = std::env::var("AGENT_CONFIG_DIR")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|path| path.exists());
+
+        match memory::docsd_client::init_managed_docs(
+            &config.workspace_dir,
+            scaffold_dir.as_deref(),
+        ) {
+            Ok(report) => {
+                tracing::info!(
+                    seeded = report.seeded_docs,
+                    materialized = report.materialized_docs,
+                    "Managed docs initialized"
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Managed docs initialization skipped: {e}");
+            }
+        }
+    }
+
     match cli.command {
         Commands::Onboard { .. } => unreachable!(),
+        Commands::Docsd { .. } => unreachable!(),
 
         Commands::Agent {
             message,
@@ -699,6 +806,84 @@ async fn main() -> Result<()> {
 
         Commands::Skills { skill_command } => {
             skills::handle_command(skill_command, &config.workspace_dir)
+        }
+
+        Commands::Docs { docs_command } => {
+            use memory::managed_docs::normalize_doc_id;
+
+            match docs_command {
+                DocsCommands::List => {
+                    let docs = memory::docsd_client::list_docs(&config.workspace_dir)?;
+                    if docs.is_empty() {
+                        println!("No managed documents initialized.");
+                    } else {
+                        for doc in docs {
+                            println!("{doc}");
+                        }
+                    }
+                    Ok(())
+                }
+                DocsCommands::Read { doc } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    match memory::docsd_client::read_doc(&config.workspace_dir, &doc_id)? {
+                        Some(content) => {
+                            print!("{content}");
+                            Ok(())
+                        }
+                        None => {
+                            bail!("Managed document not initialized: {doc_id}");
+                        }
+                    }
+                }
+                DocsCommands::Append {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    memory::docsd_client::append_doc(
+                        &config.workspace_dir,
+                        &doc_id,
+                        section.as_deref(),
+                        &content,
+                        "cli:docs_append",
+                    )?;
+                    println!("Appended content to {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::ReplaceSection {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    memory::docsd_client::replace_doc_section(
+                        &config.workspace_dir,
+                        &doc_id,
+                        &section,
+                        &content,
+                        "cli:docs_replace_section",
+                    )?;
+                    println!("Updated section '{section}' in {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::Materialize => {
+                    let count = memory::docsd_client::materialize_docs(&config.workspace_dir)?;
+                    println!("Materialized {count} managed docs");
+                    Ok(())
+                }
+                DocsCommands::Doctor => {
+                    let status = memory::docsd_client::probe_docsd(&config.workspace_dir)?;
+                    println!("{status}");
+                    Ok(())
+                }
+            }
         }
 
         Commands::Migrate { migrate_command } => {

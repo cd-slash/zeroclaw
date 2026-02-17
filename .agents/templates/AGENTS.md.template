@@ -22,10 +22,10 @@ Capture what matters. Decisions, context, things to remember.
 Skip secrets unless asked to keep them.
 
 ### Write It Down — No Mental Notes!
-- Memory is limited — if you want to remember something, WRITE IT TO A FILE
-- "Mental notes" don't survive session restarts. Files do.
-- When someone says "remember this" -> update daily file or MEMORY.md
-- When you learn a lesson -> update AGENTS.md, TOOLS.md, or the relevant skill
+- Memory is limited — if you want to remember something, WRITE IT DOWN.
+- "Mental notes" don't survive session restarts.
+- Managed docs are event-sourced and read-only on disk. To update `MEMORY.md`, `AGENTS.md`, `TOOLS.md`, or `skills/*/SKILL.md`, use `docs_append` or `docs_replace_section`.
+- Use `docs_read` to verify current managed doc content.
 
 ## Safety
 
@@ -54,7 +54,10 @@ Keep local notes (SSH hosts, device names, etc.) in `TOOLS.md`.
 
 - **shell** — Execute terminal commands
 - **file_read** — Read file contents
-- **file_write** — Write file contents
+- **file_write** — Write file contents (not for managed docs)
+- **docs_read** — Read managed markdown docs from the event store
+- **docs_append** — Append markdown blocks to managed docs (best for MEMORY.md)
+- **docs_replace_section** — Replace/create a section in managed docs
 - **memory_store** — Save to memory
 - **memory_recall** — Search memory
 - **memory_forget** — Delete memory

@@ -20,8 +20,17 @@ Things like:
   - Use when: inspecting project files, configs, or logs.
   - Don't use when: you only need a quick string search (prefer targeted search first).
 - **file_write** — Write file contents
-  - Use when: applying focused edits, scaffolding files, or updating docs/code.
-  - Don't use when: unsure about side effects or when the file should remain user-owned.
+  - Use when: applying focused edits or scaffolding regular project files.
+  - Don't use when: updating managed docs (`AGENTS.md`, `SOUL.md`, `TOOLS.md`, `IDENTITY.md`, `USER.md`, `HEARTBEAT.md`, `BOOTSTRAP.md`, `MEMORY.md`, `skills/*/SKILL.md`). Use docs_* tools instead.
+- **docs_read** — Read managed markdown docs
+  - Use when: checking current managed doc content before/after updates.
+  - Don't use when: reading ordinary code/config files (use file_read).
+- **docs_append** — Append managed doc content
+  - Use when: adding notes, lessons, or new blocks; prefer this for `MEMORY.md` updates.
+  - Don't use when: replacing a specific existing section (use docs_replace_section).
+- **docs_replace_section** — Replace or create a section in managed docs
+  - Use when: updating a named section without rewriting the whole document.
+  - Don't use when: you only need to add a new note at the end (use docs_append).
 - **memory_store** — Save to memory
   - Use when: preserving durable preferences, decisions, or key context.
   - Don't use when: info is transient, noisy, or sensitive without explicit need.
