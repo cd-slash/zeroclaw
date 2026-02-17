@@ -420,17 +420,18 @@ For a visual interface to manage all agents:
 ./scripts/tui.sh
 
 # Or from the tui directory
-cd tui && npm install && npm run build
+cd tui && bun install && bun run build
 ./scripts/tui.sh
 ```
 
 **TUI Features:**
 - 📋 **Agent List** — View status of all agents (running/stopped)
-- ⚙️ **Configuration Editor** — Edit `.env` files with live validation
+- ⚙️ **Configuration Editor** — Edit `.env` files with live validation + env variable modal
 - 📝 **Identity Management** — Edit SOUL.md, IDENTITY.md, AGENTS.md
 - 🔧 **Tools & Packages** — Configure APT/NPM packages and custom tools
 - ▶️ **Agent Control** — Start/stop agents with visual feedback
 - 📊 **Live Logs** — Stream agent logs in real-time
+- 🛟 **Backup & Recovery** — Run local backups, MinIO sync, and Litestream operations
 
 Each agent has its own directory in `.agents/<name>/` containing:
 - `.env` — Configuration (API keys, model settings, tool packages)

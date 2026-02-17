@@ -28,7 +28,7 @@ Terminal User Interface for managing ZeroClaw agents.
 ./scripts/tui.sh
 ```
 
-## Current Features
+## Features
 
 - 📋 **Agent Overview**: Per-agent status, config snapshot, env validation
 - ⚙️ **Config Editor + Env Modal**: Edit `.agents/<agent>/.env` and manage key/value vars with modal actions
