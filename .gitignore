@@ -30,3 +30,22 @@ venv/
 *.pem
 credentials.json
 .worktrees/
+# Multi-agent configuration - ignore hidden env files (contain secrets)
+# but allow agent identity directories to be committed
+.agents/.*.env
+
+# Keep these agent identity directories
+!.agents/.handy/
+!.agents/.gordon/
+!.agents/.zoe/
+
+# Ignore skills directories (user-created content)
+.agents/.*/skills/*
+!.agents/.*/skills/.gitkeep
+
+# Templates should be committed
+!.agents/templates/
+
+# MinIO credentials (copy from minio.env.example)
+.agents/minio.env
+.minio.env

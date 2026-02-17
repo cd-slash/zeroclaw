@@ -9,10 +9,14 @@
 
 services:
   zeroclaw:
-    image: ghcr.io/zeroclaw-labs/zeroclaw:latest
-    # Or build locally:
-    # build: .
-    container_name: zeroclaw
+    # image: ghcr.io/zeroclaw-labs/zeroclaw:latest
+    # Build locally (dev image includes Tailscale support):
+    build:
+      context: .
+      target: dev
+    # Container name and hostname are aligned via HOSTNAME env var
+    container_name: ${HOSTNAME:-zeroclaw}
+    hostname: ${HOSTNAME:-zeroclaw}
     restart: unless-stopped
 
     env_file:
@@ -41,9 +45,13 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    # Required for Tailscale VPN:
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
 
-    # Health check — uses lightweight status instead of full diagnostics.
-    # For images with curl, prefer: curl -f http://localhost:42617/health
+    # Health check
     healthcheck:
       test: ["CMD", "zeroclaw", "status"]
       interval: 60s
