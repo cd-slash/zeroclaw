@@ -32,15 +32,24 @@ credentials.json
 # Multi-agent configuration - ignore hidden env files (contain secrets)
 # but allow agent identity directories to be committed
 .agents/.*.env
+# Multi-agent configuration - ignore all .env files in agent directories
+.agents/*/.env
 
-# Keep these agent identity directories
-!.agents/.handy/
-!.agents/.gordon/
-!.agents/.zoe/
+# Ignore agent data directories (can be recreated)
+.agents/handy/
+.agents/gordon/
+.agents/zoe/
+
+# But allow tracking agent templates and documentation
+!.agents/templates/
 
 # Ignore skills directories (user-created content)
-.agents/.*/skills/*
-!.agents/.*/skills/.gitkeep
+.agents/*/skills/*
+!.agents/*/skills/.gitkeep
+
+# Ignore tools directories (user-created content)
+.agents/*/tools/*
+!.agents/*/tools/.gitkeep
 
 # Templates should be committed
 !.agents/templates/

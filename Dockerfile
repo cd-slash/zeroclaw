@@ -108,6 +108,13 @@ COPY .agents/litestream.template.yml /etc/litestream/litestream.yml
 COPY start-agent-with-litestream.sh /usr/local/bin/start-agent-with-litestream.sh
 RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 
+# Copy agent setup script for dynamic package/tool installation
+COPY agent-setup.sh /usr/local/bin/agent-setup.sh
+RUN chmod +x /usr/local/bin/agent-setup.sh
+
+# Add agent-tools to PATH globally
+ENV PATH="/usr/local/bin/agent-tools:${PATH}"
+
 # Environment setup
 # Use consistent workspace path
 ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace

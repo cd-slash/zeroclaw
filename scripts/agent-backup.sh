@@ -55,7 +55,7 @@ get_volume_name() {
 # Check if agent exists
 check_agent() {
     local agent="$1"
-    if [[ ! -f "$PROJECT_DIR/.agents/.${agent}.env" ]]; then
+    if [[ ! -f "$PROJECT_DIR/.agents/${agent}/.env" ]]; then
         log_error "Agent '$agent' not found"
         exit 1
     fi
