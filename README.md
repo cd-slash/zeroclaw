@@ -388,6 +388,73 @@ zeroclaw agent --provider openai-codex --auth-profile openai-codex:work -m "hell
 zeroclaw agent --provider anthropic -m "hello"
 ```
 
+## Multi-Agent Setup 🎯
+
+Run multiple specialized agents, each in isolated Docker containers with their own configuration and tools.
+
+```bash
+# Start the built-in agents
+./scripts/agent.sh start handy    # DevOps specialist
+./scripts/agent.sh start gordon   # Code reviewer
+./scripts/agent.sh start zoe      # Creative writer
+
+# List all agents and their status
+./scripts/agent.sh list
+
+# Create a new agent
+./scripts/agent.sh create mybot
+
+# View logs
+./scripts/agent.sh logs handy -f
+
+# Open shell in agent container
+./scripts/agent.sh shell handy
+```
+
+### 🖥️ TUI Manager (Interactive)
+
+For a visual interface to manage all agents:
+
+```bash
+# Launch the TUI (builds automatically on first run)
+./scripts/tui.sh
+
+# Or from the tui directory
+cd tui && npm install && npm run build
+./scripts/tui.sh
+```
+
+**TUI Features:**
+- 📋 **Agent List** — View status of all agents (running/stopped)
+- ⚙️ **Configuration Editor** — Edit `.env` files with live validation
+- 📝 **Identity Management** — Edit SOUL.md, IDENTITY.md, AGENTS.md
+- 🔧 **Tools & Packages** — Configure APT/NPM packages and custom tools
+- ▶️ **Agent Control** — Start/stop agents with visual feedback
+- 📊 **Live Logs** — Stream agent logs in real-time
+
+Each agent has its own directory in `.agents/<name>/` containing:
+- `.env` — Configuration (API keys, model settings, tool packages)
+- `*.md` — Identity files (SOUL, IDENTITY, TOOLS, etc.)
+- `tools/` — Custom executables available only to this agent
+- `skills/` — Agent-specific skill definitions
+
+### Per-Agent Customization
+
+Configure each agent independently via environment variables in `.agents/<name>/.env`:
+
+```bash
+# Install system packages at container startup
+AGENT_APT_PACKAGES="kubectl helm jq awscli"
+
+# Install Node.js packages globally
+AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript"
+
+# Download remote tools
+AGENT_TOOLS="https://example.com/my-tool"
+```
+
+All agents share a single Dockerfile with dynamic package installation at startup — no need to maintain separate images!
+
 ## Architecture
 
 Every subsystem is a **trait** — swap implementations with a config change, zero code changes.
