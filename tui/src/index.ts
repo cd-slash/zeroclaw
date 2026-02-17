@@ -12,7 +12,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   BoxRenderable,
@@ -100,6 +100,7 @@ class AgentManagerTui {
   };
   private currentFilePath: string | null = null;
   private loadedFileText = "";
+  private currentFileReadOnly = false;
   private unsaved = false;
   private message = "Ready";
   private logs: string[] = [];
@@ -280,7 +281,11 @@ class AgentManagerTui {
       wrapMode: "none",
       onContentChange: () => {
         if (this.currentFilePath !== null) {
-          this.unsaved = this.editor.plainText !== this.loadedFileText;
+          if (this.currentFileReadOnly) {
+            this.unsaved = false;
+          } else {
+            this.unsaved = this.editor.plainText !== this.loadedFileText;
+          }
           this.renderAll();
         }
       },
@@ -971,12 +976,13 @@ class AgentManagerTui {
       : 0;
     const envPart = this.currentView === "env" ? ` | env-errors:${envErrors}` : "";
     const unsavedPart = this.unsaved ? " | unsaved" : "";
+    const readOnlyPart = this.currentFileReadOnly ? " | read-only" : "";
     const focusPart = `focus:${this.focusMode}`;
     const envModalHint = this.currentView === "env" ? " | e env-modal" : "";
     const skillsHint = this.currentView === "skills" ? " | skills:m rename y copy" : "";
     const opsHint = this.currentView === "ops" ? " | ops:b/c/r/u/i/o/v/p/g/y" : "";
     return [
-      `Status: ${this.message}${unsavedPart}${envPart}`,
+      `Status: ${this.message}${unsavedPart}${readOnlyPart}${envPart}`,
       `Global: q quit | Tab focus | 1-7 views | a create | Shift+c duplicate | Shift+d safe-remove | s start | t stop | Shift+r restart`,
       `File: Ctrl+s save | n new | x delete | r refresh/list | ${focusPart}${envModalHint}${skillsHint}${opsHint}`,
     ].join("\n");
@@ -1095,6 +1101,7 @@ class AgentManagerTui {
     if (files.length === 0) {
       this.currentFilePath = null;
       this.loadedFileText = "";
+      this.currentFileReadOnly = false;
       this.unsaved = false;
       this.editor.setText("");
       return;
@@ -1103,7 +1110,9 @@ class AgentManagerTui {
     this.setCurrentFileIndex(index);
     const filePath = files[index];
     this.currentFilePath = filePath;
-    this.loadedFileText = this.safeRead(filePath);
+    const loaded = this.loadEditorContentForPath(filePath);
+    this.loadedFileText = loaded.content;
+    this.currentFileReadOnly = loaded.readOnly;
     this.editor.setText(this.loadedFileText);
     this.unsaved = false;
   }
@@ -1111,6 +1120,12 @@ class AgentManagerTui {
   private saveCurrentFile(): void {
     if (this.currentFilePath === null) {
       this.message = "No file selected";
+      this.renderAll();
+      return;
+    }
+
+    if (this.currentFileReadOnly) {
+      this.message = "Selected file is read-only in TUI";
       this.renderAll();
       return;
     }
@@ -1964,6 +1979,63 @@ class AgentManagerTui {
       return "";
     }
     return readFileSync(path, "utf-8");
+  }
+
+  private loadEditorContentForPath(filePath: string): { content: string; readOnly: boolean } {
+    if (this.currentView !== "tools") {
+      return { content: this.safeRead(filePath), readOnly: false };
+    }
+
+    if (!this.isProbablyBinaryFile(filePath)) {
+      return { content: this.safeRead(filePath), readOnly: false };
+    }
+
+    const description = this.getToolDescription(filePath);
+    const relPath = relative(ROOT_DIR, filePath);
+    const lines = [
+      `Binary tool: ${relPath}`,
+      `Description: ${description}`,
+      "",
+      "Binary contents are not displayed in the TUI.",
+      "Use shell to inspect behavior, for example:",
+      `  ${basename(filePath)} --help`,
+    ];
+    return { content: lines.join("\n"), readOnly: true };
+  }
+
+  private isProbablyBinaryFile(filePath: string): boolean {
+    const buf = readFileSync(filePath);
+    if (buf.length === 0) {
+      return false;
+    }
+
+    const sampleLen = Math.min(buf.length, 8192);
+    let suspicious = 0;
+    for (let i = 0; i < sampleLen; i++) {
+      const byte = buf[i];
+      if (byte === 0) {
+        return true;
+      }
+      const isTabOrNewline = byte === 9 || byte === 10 || byte === 13;
+      const isPrintableAscii = byte >= 32 && byte <= 126;
+      if (!isTabOrNewline && !isPrintableAscii) {
+        suspicious += 1;
+      }
+    }
+
+    return suspicious / sampleLen > 0.3;
+  }
+
+  private getToolDescription(filePath: string): string {
+    const metaPath = join(dirname(filePath), `.${basename(filePath)}.tool`);
+    if (existsSync(metaPath) && statSync(metaPath).isFile()) {
+      const meta = this.parseEnv(this.safeRead(metaPath));
+      const description = meta.description?.trim();
+      if (description !== undefined && description.length > 0) {
+        return description;
+      }
+    }
+    return "No description provided.";
   }
 }
 
