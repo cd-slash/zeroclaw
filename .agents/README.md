@@ -180,25 +180,23 @@ On `../scripts/agent.sh start <agent>` these are automatically:
 - Copied into the Docker image at `/usr/local/bin/agent-tools/`
 - Made executable and available as `agent-tools/<tool-name>`
 
-### Method 2: Dynamic Package Installation (No Dockerfile Needed!)
+### Method 2: Build-Time APT + Bun Packages (Preferred)
 
-Install system packages at container startup via environment variables in `.env`:
+Declare package routes in `.agents/<agent>/tools.toml`:
 
-```bash
-# Install APT packages (system tools)
-AGENT_APT_PACKAGES="kubectl helm jq awscli"
+```toml
+[apt]
+packages = ["jq", "ripgrep"]
 
-# Install NPM packages (Node.js tools)
-AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript ts-node"
-
-# Tool declarations are in .agents/<agent>/tools.toml
+[bun]
+packages = ["typescript", "tsx"]
 ```
 
 **How it works:**
-- Packages are installed once at first container startup
-- Cached marker prevents re-installation on container restart
-- Single shared image = easier maintenance
-- Per-agent flexibility via env vars
+- `../scripts/agent.sh start <agent>` resolves `tools.toml` into `.build-tools/`
+- Docker build installs `[apt].packages` directly into the image
+- Docker build installs Bun and `[bun].packages` globally into the image
+- Result is immutable and portable to remote hosts
 
 **Example DevOps agent `.env`:**
 
