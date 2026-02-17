@@ -61,6 +61,8 @@ EOF
 # ── Stage 2: Development Runtime (Debian with Tailscale) ─────
 FROM debian:trixie-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS dev
 
+ARG AGENT_NAME="_default"
+
 # Install runtime dependencies + basic debug tools + Tailscale support
 RUN apt-get update && apt-get install -y \
     ca-certificates \
@@ -111,6 +113,12 @@ RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 # Copy agent setup script for dynamic package/tool installation
 COPY agent-setup.sh /usr/local/bin/agent-setup.sh
 RUN chmod +x /usr/local/bin/agent-setup.sh
+
+# Copy agent-specific resolved tools into image at build time.
+# These files are generated from .agents/<agent>/tools.toml by scripts/resolve-agent-tools.sh.
+RUN mkdir -p /usr/local/bin/agent-tools
+COPY --from=builder /app/.agents/${AGENT_NAME}/.build-tools/ /usr/local/bin/agent-tools/
+RUN find /usr/local/bin/agent-tools -maxdepth 1 -type f ! -name ".*.tool" -exec chmod +x {} \; || true
 
 # Add agent-tools to PATH globally
 ENV PATH="/usr/local/bin/agent-tools:${PATH}"
