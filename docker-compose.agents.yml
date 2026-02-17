@@ -109,6 +109,11 @@ services:
         source: ./.agents/handy
         target: /agent-config
         read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/handy/tools
+        target: /usr/local/bin/agent-tools
+        read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
   gordon:
@@ -133,6 +138,11 @@ services:
       - type: bind
         source: ./.agents/gordon
         target: /agent-config
+        read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/gordon/tools
+        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
@@ -183,6 +193,11 @@ services:
       - type: bind
         source: ./.agents/dwayne
         target: /agent-config
+        read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/zoe/tools
+        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
