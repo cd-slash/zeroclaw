@@ -1232,6 +1232,11 @@ async fn main() -> Result<()> {
                     println!("Materialized {count} managed docs");
                     Ok(())
                 }
+                DocsCommands::Doctor => {
+                    let status = memory::docsd_client::probe_docsd(&config.workspace_dir)?;
+                    println!("{status}");
+                    Ok(())
+                }
             }
         }
 
