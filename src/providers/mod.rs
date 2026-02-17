@@ -229,7 +229,7 @@ pub fn create_provider(name: &str, api_key: Option<&str>) -> anyhow::Result<Box<
         ))),
         "minimax" => Ok(Box::new(OpenAiCompatibleProvider::new(
             "MiniMax",
-            "https://api.minimaxi.com/v1",
+            "https://api.minimax.io/v1",
             key,
             AuthStyle::Bearer,
         ))),
