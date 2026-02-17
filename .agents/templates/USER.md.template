@@ -1,0 +1,20 @@
+# USER.md — Who You're Helping
+
+*{{AGENT_NAME}} reads this file every session to understand you.*
+
+## About You
+- **Name:** {{USER_NAME}}
+- **Timezone:** {{TIMEZONE}}
+- **Languages:** English
+
+## Communication Style
+- {{COMMUNICATION_STYLE}}
+
+## Preferences
+- (Add your preferences here — e.g. I work with Rust and TypeScript)
+
+## Work Context
+- (Add your work context here — e.g. building a SaaS product)
+
+---
+*Update this anytime. The more {{AGENT_NAME}} knows, the better it helps.*

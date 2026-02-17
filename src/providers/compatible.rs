@@ -1062,6 +1062,7 @@ mod tests {
             make_provider("Moonshot", "https://api.moonshot.cn", None),
             make_provider("GLM", "https://open.bigmodel.cn", None),
             make_provider("MiniMax", "https://api.minimaxi.com/v1", None),
+            make_provider("MiniMax-International", "https://api.minimax.io/v1", None),
             make_provider("Groq", "https://api.groq.com/openai", None),
             make_provider("Mistral", "https://api.mistral.ai", None),
             make_provider("xAI", "https://api.x.ai", None),
@@ -1273,11 +1274,21 @@ mod tests {
 
     #[test]
     fn chat_completions_url_minimax() {
-        // MiniMax OpenAI-compatible endpoint requires /v1 base path.
+        // MiniMax China endpoint (api.minimaxi.com)
         let p = make_provider("minimax", "https://api.minimaxi.com/v1", None);
         assert_eq!(
             p.chat_completions_url(),
             "https://api.minimaxi.com/v1/chat/completions"
+        );
+    }
+
+    #[test]
+    fn chat_completions_url_minimax_intl() {
+        // MiniMax International endpoint (api.minimax.io)
+        let p = make_provider("minimax-intl", "https://api.minimax.io/v1", None);
+        assert_eq!(
+            p.chat_completions_url(),
+            "https://api.minimax.io/v1/chat/completions"
         );
     }
 

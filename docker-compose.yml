@@ -9,35 +9,34 @@
 
 services:
   zeroclaw:
-    image: ghcr.io/zeroclaw-labs/zeroclaw:latest
-    # Or build locally:
-    # build: .
-    container_name: zeroclaw
+    # image: ghcr.io/zeroclaw-labs/zeroclaw:latest
+    # Build locally (dev image includes Tailscale support):
+    build:
+      context: .
+      target: dev
+    # Container name and hostname are aligned via HOSTNAME env var
+    container_name: ${HOSTNAME:-zeroclaw}
+    hostname: ${HOSTNAME:-zeroclaw}
     restart: unless-stopped
     
+    # Load all environment variables from .env file
+    # The entrypoint will auto-sync ZEROCLAW_* variables to config.toml
+    env_file:
+      - .env
+    
+    # Only map specific vars needed at compose-level (hostname, ports)
     environment:
-      # Required: Your LLM provider API key
-      - API_KEY=${API_KEY:-}
-      # Or use the prefixed version:
-      # - ZEROCLAW_API_KEY=${ZEROCLAW_API_KEY:-}
-      
-      # Optional: LLM provider (default: openrouter)
-      # Options: openrouter, openai, anthropic, ollama
-      - PROVIDER=${PROVIDER:-openrouter}
-      
-      # Allow public bind inside Docker (required for container networking)
-      - ZEROCLAW_ALLOW_PUBLIC_BIND=true
-      
-      # Optional: Model override
-      # - ZEROCLAW_MODEL=anthropic/claude-sonnet-4-20250514
-      
+      # These are used by docker-compose itself (not just the container)
+      - HOSTNAME=${HOSTNAME:-zeroclaw}
+      - HOST_PORT=${HOST_PORT:-3000}
+    
     volumes:
       # Persist workspace and config (must match WORKDIR/HOME in Dockerfile)
       - zeroclaw-data:/zeroclaw-data
-      
-    ports:
-      # Gateway API port (override HOST_PORT if 3000 is taken)
-      - "${HOST_PORT:-3000}:3000"
+      # Persist Tailscale state
+      - tailscale-data:/var/lib/tailscale
+    
+    # No host ports exposed - use Tailscale for secure networking
     
     # Resource limits
     deploy:
@@ -48,9 +47,13 @@ services:
         reservations:
           cpus: '0.5'
           memory: 512M
+    # Required for Tailscale VPN:
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
 
-    # Health check — uses lightweight status instead of full diagnostics.
-    # For images with curl, prefer: curl -f http://localhost:3000/health
+    # Health check
     healthcheck:
       test: ["CMD", "zeroclaw", "status"]
       interval: 60s
@@ -60,3 +63,4 @@ services:
 
 volumes:
   zeroclaw-data:
+  tailscale-data:

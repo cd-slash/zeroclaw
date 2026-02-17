@@ -53,23 +53,60 @@ default_temperature = 0.7
 port = 3000
 host = "[::]"
 allow_public_bind = true
+
+[tunnel]
+provider = "none"
 EOF
 
-# ── Stage 2: Development Runtime (Debian) ────────────────────
+# ── Stage 2: Development Runtime (Debian with Tailscale) ─────
 FROM debian:trixie-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS dev
 
-# Install essential runtime dependencies only (use docker-compose.override.yml for dev tools)
+# Install runtime dependencies + basic debug tools + Tailscale support
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
+    git \
+    iputils-ping \
+    vim \
+    jq \
+    iproute2 \
+    iptables \
+    procps \
+    tar \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Tailscale
+RUN curl -fsSL https://tailscale.com/install.sh | sh
+
+# Install Litestream for SQLite backup
+# Using official Litestream release
+RUN curl -fsSL -o litestream.deb https://github.com/benbjohnson/litestream/releases/download/v0.3.13/litestream-v0.3.13-linux-amd64.deb \
+    && dpkg -i litestream.deb \
+    && rm litestream.deb
+
+# Create required directories
+RUN mkdir -p /var/lib/tailscale /var/run/tailscale /etc/litestream
 
 COPY --from=builder /zeroclaw-data /zeroclaw-data
 COPY --from=builder /app/zeroclaw /usr/local/bin/zeroclaw
 
+# Create zeroclaw user for running zeroclaw and Tailscale SSH access
+# Using UID 1000 (standard first user) instead of reusing nobody (65534)
+RUN useradd -m -u 1000 -s /bin/bash -d /zeroclaw-data zeroclaw && \
+    chown -R zeroclaw:zeroclaw /zeroclaw-data /var/lib/tailscale /var/run/tailscale
+
 # Overwrite minimal config with DEV template (Ollama defaults)
 COPY dev/config.template.toml /zeroclaw-data/.zeroclaw/config.toml
-RUN chown 65534:65534 /zeroclaw-data/.zeroclaw/config.toml
+RUN chown zeroclaw:zeroclaw /zeroclaw-data/.zeroclaw/config.toml
+
+# Copy entrypoint script for Tailscale authentication
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Copy Litestream configuration and start script
+COPY .agents/litestream.template.yml /etc/litestream/litestream.yml
+COPY start-agent-with-litestream.sh /usr/local/bin/start-agent-with-litestream.sh
+RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 
 # Environment setup
 # Use consistent workspace path
@@ -84,10 +121,10 @@ ENV ZEROCLAW_GATEWAY_PORT=3000
 # It is set in config.toml as the Ollama URL.
 
 WORKDIR /zeroclaw-data
-USER 65534:65534
+# Run as root so entrypoint can start tailscaled, then drop to zeroclaw user
 EXPOSE 3000
-ENTRYPOINT ["zeroclaw"]
-CMD ["gateway"]
+VOLUME ["/var/lib/tailscale"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 # ── Stage 3: Production Runtime (Distroless) ─────────────────
 FROM gcr.io/distroless/cc-debian13:nonroot@sha256:84fcd3c223b144b0cb6edc5ecc75641819842a9679a3a58fd6294bec47532bf7 AS release

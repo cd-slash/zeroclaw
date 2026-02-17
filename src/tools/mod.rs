@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod browser;
 pub mod browser_open;
 pub mod composio;
@@ -24,9 +25,11 @@ pub mod schedule;
 pub mod schema;
 pub mod screenshot;
 pub mod shell;
+pub mod snapshot;
 pub mod traits;
 pub mod web_search_tool;
 
+pub use backup::BackupTool;
 pub use browser::{BrowserTool, ComputerUseConfig};
 pub use browser_open::BrowserOpenTool;
 pub use composio::ComposioTool;
@@ -54,6 +57,7 @@ pub use schedule::ScheduleTool;
 pub use schema::{CleaningStrategy, SchemaCleanr};
 pub use screenshot::ScreenshotTool;
 pub use shell::ShellTool;
+pub use snapshot::SnapshotTool;
 pub use traits::Tool;
 #[allow(unused_imports)]
 pub use traits::{ToolResult, ToolSpec};
@@ -152,6 +156,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
+        Box::new(BackupTool::new(workspace_dir.to_path_buf())),
+        Box::new(SnapshotTool::new(workspace_dir.to_path_buf())),
     ];
 
     if browser_config.enabled {

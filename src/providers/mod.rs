@@ -298,7 +298,6 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
             return Some(trimmed_override.to_owned());
         }
     }
-
     let provider_env_candidates: Vec<&str> = match name {
         "anthropic" => vec!["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
         "openrouter" => vec!["OPENROUTER_API_KEY"],
@@ -347,7 +346,11 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
         }
     }
 
-    None
+    // Finally, fall back to the explicit credential from config.toml/CLI.
+    credential_override
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .map(|k| k.to_string())
 }
 
 fn parse_custom_provider_url(
@@ -455,6 +458,12 @@ pub fn create_provider_with_url(
         name if minimax_base_url(name).is_some() => Ok(Box::new(OpenAiCompatibleProvider::new(
             "MiniMax",
             minimax_base_url(name).expect("checked in guard"),
+            key,
+            AuthStyle::Bearer,
+        ))),
+        "minimax-intl" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "MiniMax-International",
+            "https://api.minimax.io/v1",
             key,
             AuthStyle::Bearer,
         ))),
@@ -924,6 +933,18 @@ mod tests {
     fn resolve_provider_credential_prefers_explicit_argument() {
         let resolved = resolve_provider_credential("openrouter", Some("  explicit-key  "));
         assert_eq!(resolved, Some("explicit-key".to_string()));
+    }
+
+    #[test]
+    fn resolve_provider_credential_prefers_explicit_over_env() {
+        std::env::set_var("MINIMAX_API_KEY", "env-minimax-key");
+        std::env::set_var("ZEROCLAW_API_KEY", "generic-key");
+
+        let resolved = resolve_provider_credential("minimax-intl", Some("config-key"));
+        assert_eq!(resolved, Some("config-key".to_string()));
+
+        std::env::remove_var("MINIMAX_API_KEY");
+        std::env::remove_var("ZEROCLAW_API_KEY");
     }
 
     #[test]
