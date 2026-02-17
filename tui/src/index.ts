@@ -55,22 +55,25 @@ const LITESTREAM_SCRIPT = join(ROOT_DIR, "scripts/litestream.sh");
 const BACKUPS_DIR = join(ROOT_DIR, ".backups");
 
 const THEME = {
-  bg: "#0c111a",
-  panel: "#101927",
-  panelAlt: "#0f1723",
-  border: "#2c3f5c",
-  borderSoft: "#25344b",
-  text: "#d7e6ff",
-  textMuted: "#9db3d6",
+  bg: "#0b1018",
+  panel: "#142033",
+  panelAlt: "#111b2b",
+  border: "#3a557a",
+  borderSoft: "#314968",
+  text: "#ebf2ff",
+  textMuted: "#c6d6ef",
   accent: "#60a5fa",
   success: "#34d399",
   warning: "#fbbf24",
   danger: "#fb7185",
-  editorBg: "#0b1524",
-  editorFocusBg: "#0a1b30",
-  promptBg: "#101a2a",
-  envModalBg: "#0f1f1a",
+  editorBg: "#0c1627",
+  editorFocusBg: "#0d2038",
+  promptBg: "#152239",
+  envModalBg: "#143126",
 };
+
+const TAB_PAD_X = 2;
+const TAB_PAD_Y = 1;
 
 const VIEWS: Array<{ key: View; label: string }> = [
   { key: "dashboard", label: "Dashboard" },
@@ -113,6 +116,7 @@ class AgentManagerTui {
   private footerText!: TextRenderable;
   private agentsText!: TextRenderable;
   private tabsText!: TextRenderable;
+  private dashboardContainer!: BoxRenderable;
   private dashboardText!: TextRenderable;
   private fileListText!: TextRenderable;
   private editor!: TextareaRenderable;
@@ -161,14 +165,14 @@ class AgentManagerTui {
       height: "100%",
       flexDirection: "column",
       backgroundColor: THEME.bg,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
     });
 
     const header = new BoxRenderable(this.renderer, {
-      height: 4,
-      border: true,
-      borderColor: THEME.border,
+      height: 3,
       backgroundColor: THEME.panel,
-      paddingX: 2,
+      paddingX: TAB_PAD_X,
       justifyContent: "center",
     });
     this.headerText = new TextRenderable(this.renderer, {
@@ -181,16 +185,14 @@ class AgentManagerTui {
     const body = new BoxRenderable(this.renderer, {
       flexGrow: 1,
       flexDirection: "row",
+      marginTop: 1,
     });
 
     const sidebar = new BoxRenderable(this.renderer, {
       width: 34,
-      border: true,
-      borderColor: THEME.borderSoft,
       backgroundColor: THEME.panelAlt,
-      title: "Agents",
-      paddingX: 2,
-      paddingY: 1,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
     });
     this.agentsText = new TextRenderable(this.renderer, {
       content: "",
@@ -201,17 +203,14 @@ class AgentManagerTui {
     const contentColumn = new BoxRenderable(this.renderer, {
       flexGrow: 1,
       flexDirection: "column",
-      marginLeft: 1,
+      marginLeft: TAB_PAD_X,
     });
 
     const tabs = new BoxRenderable(this.renderer, {
       height: 3,
-      border: true,
-      borderColor: THEME.borderSoft,
       backgroundColor: THEME.panel,
-      paddingX: 1,
+      paddingX: TAB_PAD_X,
       justifyContent: "center",
-      title: "Views",
     });
     this.tabsText = new TextRenderable(this.renderer, {
       content: "",
@@ -221,13 +220,19 @@ class AgentManagerTui {
 
     const content = new BoxRenderable(this.renderer, {
       flexGrow: 1,
-      border: true,
-      borderColor: THEME.border,
       backgroundColor: THEME.panelAlt,
       marginTop: 1,
-      title: "Workspace",
       flexDirection: "column",
-      padding: 1,
+      paddingX: 0,
+      paddingY: 0,
+    });
+
+    this.dashboardContainer = new BoxRenderable(this.renderer, {
+      width: "100%",
+      height: "100%",
+      backgroundColor: THEME.panelAlt,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
     });
 
     this.dashboardText = new TextRenderable(this.renderer, {
@@ -245,12 +250,9 @@ class AgentManagerTui {
 
     const fileListContainer = new BoxRenderable(this.renderer, {
       width: 38,
-      border: true,
-      borderColor: THEME.borderSoft,
-      backgroundColor: THEME.panel,
-      title: "Files",
-      paddingX: 2,
-      paddingY: 1,
+      backgroundColor: THEME.panelAlt,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
     });
     this.fileListText = new TextRenderable(this.renderer, {
       content: "",
@@ -260,21 +262,19 @@ class AgentManagerTui {
 
     this.editorContainer = new BoxRenderable(this.renderer, {
       flexGrow: 1,
-      border: true,
-      borderColor: THEME.borderSoft,
-      backgroundColor: THEME.panel,
-      title: "Editor",
-      marginLeft: 1,
-      padding: 1,
+      backgroundColor: THEME.panelAlt,
+      marginLeft: TAB_PAD_X,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
       flexDirection: "column",
     });
     this.editor = new TextareaRenderable(this.renderer, {
       flexGrow: 1,
       width: "100%",
       height: "100%",
-      backgroundColor: THEME.editorBg,
+      backgroundColor: THEME.panelAlt,
       textColor: "#e2ecff",
-      focusedBackgroundColor: THEME.editorFocusBg,
+      focusedBackgroundColor: THEME.panelAlt,
       focusedTextColor: "#f0f6ff",
       placeholder: "No file selected",
       wrapMode: "none",
@@ -293,19 +293,16 @@ class AgentManagerTui {
     this.logsContainer = new ScrollBoxRenderable(this.renderer, {
       width: "100%",
       height: "100%",
-      border: true,
-      borderColor: THEME.borderSoft,
-      backgroundColor: THEME.panel,
-      title: "Live logs",
+      backgroundColor: THEME.panelAlt,
       stickyScroll: true,
       stickyStart: "bottom",
-      paddingX: 1,
-      paddingY: 1,
+      paddingX: 0,
+      paddingY: 0,
       viewportOptions: {
-        paddingX: 1,
+        paddingX: TAB_PAD_X,
       },
       contentOptions: {
-        paddingY: 0,
+        paddingY: TAB_PAD_Y,
       },
     });
     this.logsText = new TextRenderable(this.renderer, {
@@ -317,12 +314,9 @@ class AgentManagerTui {
     this.opsContainer = new BoxRenderable(this.renderer, {
       width: "100%",
       height: "100%",
-      border: true,
-      borderColor: THEME.borderSoft,
-      backgroundColor: THEME.panel,
-      title: "Backup and recovery",
-      paddingX: 2,
-      paddingY: 1,
+      backgroundColor: THEME.panelAlt,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
     });
     this.opsText = new TextRenderable(this.renderer, {
       content: "",
@@ -332,7 +326,8 @@ class AgentManagerTui {
     });
     this.opsContainer.add(this.opsText);
 
-    content.add(this.dashboardText);
+    this.dashboardContainer.add(this.dashboardText);
+    content.add(this.dashboardContainer);
     content.add(this.splitContainer);
     content.add(this.logsContainer);
     content.add(this.opsContainer);
@@ -345,15 +340,14 @@ class AgentManagerTui {
 
     const footer = new BoxRenderable(this.renderer, {
       height: 5,
-      border: true,
-      borderColor: THEME.border,
       backgroundColor: THEME.panel,
-      paddingX: 2,
-      paddingY: 1,
+      paddingX: TAB_PAD_X,
+      paddingY: TAB_PAD_Y,
+      marginTop: 1,
     });
     this.footerText = new TextRenderable(this.renderer, {
       content: "",
-      fg: THEME.textMuted,
+      fg: THEME.text,
     });
     footer.add(this.footerText);
 
@@ -392,7 +386,7 @@ class AgentManagerTui {
     const promptHint = new TextRenderable(this.renderer, {
       marginTop: 1,
       content: "Enter to confirm, Esc to cancel",
-      fg: THEME.textMuted,
+      fg: THEME.text,
     });
     this.promptOverlay.add(this.promptTitleText);
     this.promptOverlay.add(this.promptInput);
@@ -421,7 +415,7 @@ class AgentManagerTui {
     this.envModalVars = new TextRenderable(this.renderer, {
       marginTop: 1,
       content: "",
-      fg: "#a4d0bc",
+      fg: "#d4f5e6",
     });
     this.envModalKeyInput = new InputRenderable(this.renderer, {
       marginTop: 1,
@@ -450,7 +444,7 @@ class AgentManagerTui {
     const envModalHint = new TextRenderable(this.renderer, {
       marginTop: 1,
       content: "Tab switch field | Enter apply | Ctrl+d delete key | Esc cancel",
-      fg: "#8cb8a4",
+      fg: "#d4f5e6",
     });
     this.envModalOverlay.add(this.envModalTitle);
     this.envModalOverlay.add(this.envModalVars);
@@ -804,6 +798,7 @@ class AgentManagerTui {
     this.opsText.content = this.renderOps();
     this.footerText.content = this.renderFooter();
 
+    this.dashboardContainer.visible = this.currentView === "dashboard";
     this.dashboardText.visible = this.currentView === "dashboard";
     this.splitContainer.visible = ["env", "identity", "skills", "tools"].includes(this.currentView);
     this.logsContainer.visible = this.currentView === "logs";
