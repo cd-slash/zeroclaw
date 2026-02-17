@@ -49,6 +49,17 @@ if isinstance(entries, dict):
 if not isinstance(entries, list):
     raise SystemExit("tools.toml: 'tool' must be a list of [[tool]] tables")
 
+apt_packages_raw = data.get("apt", {}).get("packages", []) if isinstance(data.get("apt", {}), dict) else []
+bun_packages_raw = data.get("bun", {}).get("packages", []) if isinstance(data.get("bun", {}), dict) else []
+
+if not isinstance(apt_packages_raw, list):
+    raise SystemExit("tools.toml: [apt].packages must be a list of strings")
+if not isinstance(bun_packages_raw, list):
+    raise SystemExit("tools.toml: [bun].packages must be a list of strings")
+
+apt_packages = [str(p).strip() for p in apt_packages_raw if str(p).strip()]
+bun_packages = [str(p).strip() for p in bun_packages_raw if str(p).strip()]
+
 def norm_name(name: str) -> str:
     cleaned = "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "-" for ch in name.strip())
     return cleaned or "tool"
@@ -128,5 +139,16 @@ for idx, entry in enumerate(entries, start=1):
     installed += 1
 
 print(f"[resolve-agent-tools] Installed {installed} tool(s) from {tools_toml}")
+
+if apt_packages:
+    (out_dir / "apt-packages.txt").write_text("\n".join(apt_packages) + "\n", encoding="utf-8")
+if bun_packages:
+    (out_dir / "bun-packages.txt").write_text("\n".join(bun_packages) + "\n", encoding="utf-8")
+
+if apt_packages:
+    print(f"[resolve-agent-tools] Apt packages: {', '.join(apt_packages)}")
+if bun_packages:
+    print(f"[resolve-agent-tools] Bun packages: {', '.join(bun_packages)}")
+
 (out_dir / ".gitkeep").write_text("", encoding="utf-8")
 PY

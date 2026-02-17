@@ -45,6 +45,14 @@ interface EnvModalState {
   focus: "key" | "value";
 }
 
+interface ToolCatalogItem {
+  id: string;
+  name: string;
+  description: string;
+  binary: string;
+  sourcePath: string;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
@@ -53,6 +61,7 @@ const AGENT_SCRIPT = join(ROOT_DIR, "scripts/agent.sh");
 const BACKUP_SCRIPT = join(ROOT_DIR, "scripts/agent-backup.sh");
 const LITESTREAM_SCRIPT = join(ROOT_DIR, "scripts/litestream.sh");
 const BACKUPS_DIR = join(ROOT_DIR, ".backups");
+const AGENT_TOOLS_REPO = join(ROOT_DIR, "../agent-tools");
 
 const THEME = {
   bg: "#0b1018",
@@ -531,6 +540,24 @@ class AgentManagerTui {
         return;
       }
 
+      if (this.currentView === "tools") {
+        if (key.name === "i") {
+          this.promptInstallToolFromCatalog();
+          key.preventDefault();
+          return;
+        }
+        if (key.name === "p") {
+          this.promptAddAptPackages();
+          key.preventDefault();
+          return;
+        }
+        if (key.name === "b") {
+          this.promptAddBunPackages();
+          key.preventDefault();
+          return;
+        }
+      }
+
       if (this.currentView === "ops") {
         if (key.name === "b") {
           this.runOpsBackupData();
@@ -980,11 +1007,12 @@ class AgentManagerTui {
     const focusPart = `focus:${this.focusMode}`;
     const envModalHint = this.currentView === "env" ? " | e env-modal" : "";
     const skillsHint = this.currentView === "skills" ? " | skills:m rename y copy" : "";
+    const toolsHint = this.currentView === "tools" ? " | tools:i catalog p apt b bun" : "";
     const opsHint = this.currentView === "ops" ? " | ops:b/c/r/u/i/o/v/p/g/y" : "";
     return [
       `Status: ${this.message}${unsavedPart}${readOnlyPart}${envPart}`,
       `Global: q quit | Tab focus | 1-7 views | a create | Shift+c duplicate | Shift+d safe-remove | s start | t stop | Shift+r restart`,
-      `File: Ctrl+s save | n new | x delete | r refresh/list | ${focusPart}${envModalHint}${skillsHint}${opsHint}`,
+      `File: Ctrl+s save | n new | x delete | r refresh/list | ${focusPart}${envModalHint}${skillsHint}${toolsHint}${opsHint}`,
     ].join("\n");
   }
 
@@ -1172,7 +1200,72 @@ class AgentManagerTui {
   }
 
   private getToolFiles(agent: AgentInfo): string[] {
-    return this.listFilesRecursive(join(agent.dir, "tools"));
+    const files: string[] = [];
+    const toolsToml = this.getToolsTomlPath(agent);
+    if (existsSync(toolsToml)) {
+      files.push(toolsToml);
+    }
+    const localToolFiles = this.listFilesRecursive(join(agent.dir, "tools"));
+    files.push(...localToolFiles);
+    return files;
+  }
+
+  private getToolsTomlPath(agent: AgentInfo): string {
+    return join(agent.dir, "tools.toml");
+  }
+
+  private ensureToolsToml(agent: AgentInfo): string {
+    const toolsToml = this.getToolsTomlPath(agent);
+    if (!existsSync(toolsToml)) {
+      const initial = [
+        `# Tool declarations for ${agent.name} image builds.`,
+        "# The resolver copies entries into .build-tools before docker build.",
+        "",
+      ].join("\n");
+      writeFileSync(toolsToml, initial, "utf-8");
+    }
+    return toolsToml;
+  }
+
+  private parseTomlStringArray(content: string, section: "apt" | "bun"): string[] {
+    const sectionMatch = content.match(new RegExp(`\\[${section}\\][\\s\\S]*?(?=\\n\\[[^\\]]+\\]|$)`));
+    if (sectionMatch === null) {
+      return [];
+    }
+    const packagesMatch = sectionMatch[0].match(/packages\s*=\s*\[([^\]]*)\]/);
+    if (packagesMatch === null) {
+      return [];
+    }
+    const values: string[] = [];
+    const regex = /"([^"]+)"/g;
+    let m: RegExpExecArray | null = regex.exec(packagesMatch[1]);
+    while (m !== null) {
+      const value = m[1].trim();
+      if (value.length > 0) {
+        values.push(value);
+      }
+      m = regex.exec(packagesMatch[1]);
+    }
+    return values;
+  }
+
+  private upsertTomlStringArray(content: string, section: "apt" | "bun", values: string[]): string {
+    const unique = Array.from(new Set(values.map((v) => v.trim()).filter((v) => v.length > 0))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    const block = `[${section}]\npackages = [${unique.map((v) => `"${v}"`).join(", ")}]`;
+    const sectionRegex = new RegExp(`\\[${section}\\][\\s\\S]*?(?=\\n\\[[^\\]]+\\]|$)`);
+    if (sectionRegex.test(content)) {
+      return content.replace(sectionRegex, block);
+    }
+    const prefix = content.trimEnd();
+    return `${prefix.length > 0 ? `${prefix}\n\n` : ""}${block}\n`;
+  }
+
+  private hasToolName(content: string, toolName: string): boolean {
+    const escaped = toolName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`\\[\\[tool\\]\\][\\s\\S]*?name\\s*=\\s*"${escaped}"`, "m");
+    return re.test(content);
   }
 
   private listFilesRecursive(baseDir: string): string[] {
@@ -1610,6 +1703,168 @@ class AgentManagerTui {
     this.refreshAgents();
     this.restartLogStreamIfNeeded();
     this.renderAll();
+  }
+
+  private discoverToolCatalog(): ToolCatalogItem[] {
+    const catalogDir = join(AGENT_TOOLS_REPO, "tools");
+    if (!existsSync(catalogDir)) {
+      return [];
+    }
+
+    const entries = readdirSync(catalogDir, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+    const items: ToolCatalogItem[] = [];
+
+    for (const entry of entries) {
+      const toolDir = join(catalogDir, entry.name);
+      const toolToml = join(toolDir, "TOOL.toml");
+      if (!existsSync(toolToml)) {
+        continue;
+      }
+      const content = this.safeRead(toolToml);
+      const name = content.match(/^name\s*=\s*"([^"]+)"/m)?.[1] ?? entry.name;
+      const description = content.match(/^description\s*=\s*"([^"]+)"/m)?.[1] ?? "No description provided.";
+      const output = content.match(/^output\s*=\s*"([^"]+)"/m)?.[1] ?? "";
+      if (output.length === 0) {
+        continue;
+      }
+      const binaryPath = join(AGENT_TOOLS_REPO, output);
+      const binary = basename(binaryPath);
+      items.push({
+        id: entry.name,
+        name,
+        description,
+        binary,
+        sourcePath: binaryPath,
+      });
+    }
+
+    items.sort((a, b) => a.name.localeCompare(b.name));
+    return items;
+  }
+
+  private promptInstallToolFromCatalog(): void {
+    const agent = this.getSelectedAgent();
+    if (agent === null) {
+      return;
+    }
+
+    const catalog = this.discoverToolCatalog();
+    if (catalog.length === 0) {
+      this.message = "No catalog tools found in ../agent-tools/tools";
+      this.renderAll();
+      return;
+    }
+
+    const preview = catalog.slice(0, 8).map((item, idx) => `${idx + 1}:${item.name}`).join("  ");
+    this.openPrompt({
+      title: `Install catalog tool (${preview})`,
+      placeholder: "tool name or index",
+      handler: (value) => {
+        const raw = value.trim();
+        if (raw.length === 0) {
+          this.message = "Catalog install cancelled";
+          this.renderAll();
+          return;
+        }
+
+        let item: ToolCatalogItem | undefined;
+        const asIndex = Number.parseInt(raw, 10);
+        if (!Number.isNaN(asIndex) && asIndex >= 1 && asIndex <= catalog.length) {
+          item = catalog[asIndex - 1];
+        } else {
+          item = catalog.find((entry) => entry.name === raw || entry.id === raw || entry.binary === raw);
+        }
+
+        if (item === undefined) {
+          this.message = `Tool not found in catalog: ${raw}`;
+          this.renderAll();
+          return;
+        }
+
+        if (!existsSync(item.sourcePath)) {
+          this.message = `Binary missing: ${item.sourcePath}. Build it in ../agent-tools first.`;
+          this.renderAll();
+          return;
+        }
+
+        const toolsToml = this.ensureToolsToml(agent);
+        let content = this.safeRead(toolsToml).trimEnd();
+        if (this.hasToolName(content, item.name)) {
+          this.message = `Tool already declared: ${item.name}`;
+          this.renderAll();
+          return;
+        }
+
+        const block = [
+          "[[tool]]",
+          `name = "${item.name}"`,
+          'source = "path"',
+          `path = "${item.sourcePath}"`,
+          `binary = "${item.binary}"`,
+          `description = "${item.description.replace(/"/g, "\\\"")}"`,
+        ].join("\n");
+
+        content = `${content.length > 0 ? `${content}\n\n` : ""}${block}\n`;
+        writeFileSync(toolsToml, content, "utf-8");
+        this.message = `Added catalog tool '${item.name}' to ${relative(ROOT_DIR, toolsToml)}`;
+        this.loadCurrentFileByPath(toolsToml);
+        this.renderAll();
+      },
+    });
+  }
+
+  private promptAddAptPackages(): void {
+    const agent = this.getSelectedAgent();
+    if (agent === null) {
+      return;
+    }
+    this.openPrompt({
+      title: "Add APT package(s) to tools.toml [apt]",
+      placeholder: "jq ripgrep fd-find",
+      handler: (value) => {
+        const names = value.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v.length > 0);
+        if (names.length === 0) {
+          this.message = "APT package update cancelled";
+          this.renderAll();
+          return;
+        }
+        const toolsToml = this.ensureToolsToml(agent);
+        let content = this.safeRead(toolsToml);
+        const existing = this.parseTomlStringArray(content, "apt");
+        content = this.upsertTomlStringArray(content, "apt", [...existing, ...names]);
+        writeFileSync(toolsToml, content, "utf-8");
+        this.message = `Added APT packages to ${relative(ROOT_DIR, toolsToml)}`;
+        this.loadCurrentFileByPath(toolsToml);
+        this.renderAll();
+      },
+    });
+  }
+
+  private promptAddBunPackages(): void {
+    const agent = this.getSelectedAgent();
+    if (agent === null) {
+      return;
+    }
+    this.openPrompt({
+      title: "Add Bun global package(s) to tools.toml [bun]",
+      placeholder: "typescript tsx @openai/codex",
+      handler: (value) => {
+        const names = value.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v.length > 0);
+        if (names.length === 0) {
+          this.message = "Bun package update cancelled";
+          this.renderAll();
+          return;
+        }
+        const toolsToml = this.ensureToolsToml(agent);
+        let content = this.safeRead(toolsToml);
+        const existing = this.parseTomlStringArray(content, "bun");
+        content = this.upsertTomlStringArray(content, "bun", [...existing, ...names]);
+        writeFileSync(toolsToml, content, "utf-8");
+        this.message = `Added Bun packages to ${relative(ROOT_DIR, toolsToml)}`;
+        this.loadCurrentFileByPath(toolsToml);
+        this.renderAll();
+      },
+    });
   }
 
   private newFileForCurrentView(): void {
