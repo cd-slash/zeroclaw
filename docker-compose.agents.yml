@@ -1,7 +1,37 @@
 # Multi-Agent Docker Compose for ZeroClaw
 #
-# Ultra-simple pattern: One service definition, use profiles for different agents.
-# Docker Compose handles all the naming automatically.
+# Architecture:
+#   - Each agent has its own subdirectory under .agents/ (e.g., .agents/handy/)
+#   - Agent config: .agents/<agent>/.env (environment variables)
+#   - Agent identity: .agents/<agent>/*.md files
+#   - Agent tools: .agents/<agent>/tools/ (optional, mounted to /usr/local/bin/agent-tools)
+#
+# Per-Agent Tool Customization (no custom Dockerfile needed!):
+#   All agents share the same base image, but each can have different tools:
+#
+#   1. Add custom tools to .agents/<agent>/tools/
+#      These are automatically mounted and available as: agent-tools/<tool-name>
+#
+#   2. Install APT packages via environment:
+#      AGENT_APT_PACKAGES="kubectl helm awscli" in .agents/<agent>/.env
+#      (installed at container startup, cached on restart)
+#
+#   3. Install NPM packages via environment:
+#      AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript ts-node" in .agents/<agent>/.env
+#      (installed at container startup, cached on restart)
+#
+#   4. Download remote tools via environment:
+#      AGENT_TOOLS="https://example.com/my-tool" in .agents/<agent>/.env
+#
+#   Example .env for a DevOps agent:
+#     AGENT_APT_PACKAGES="kubectl helm jq"
+#     AGENT_NPM_PACKAGES="@anthropic-ai/sdk"
+#     AGENT_CONFIG_DIR=/agent-config
+#
+#   Why this approach? No need to maintain separate Dockerfiles for each agent!
+#   - Single base image = easier updates
+#   - Per-agent packages = flexibility
+#   - Cached installations = fast restarts
 #
 # Usage:
 #   docker compose -f docker-compose.agents.yml --profile handy up -d
@@ -12,7 +42,7 @@
 #   ./scripts/agent.sh create mybot
 #   docker compose -f docker-compose.agents.yml --profile mybot up -d
 #
-# Container names will be auto-generated like: zeroclaw-handy-server-1
+# Container names will be auto-generated like: zeroclaw-handy-1
 
 name: zeroclaw
 
@@ -47,10 +77,18 @@ services:
   #   - Manages all networking
   #
   # To add a new agent, copy one of these services and change:
-  #   - service name (e.g., mybot:)
-  #   - profile name (e.g., profiles: [mybot])
-  #   - port mapping (e.g., - "3003:3000")
-  #   - config directory (e.g., ./.agents/.mybot:/agent-config:ro)
+  #   - service name (e.g., myagent:)
+  #   - profile name (e.g., profiles: [myagent])
+  #   - config directory: ./.agents/myagent:/agent-config:ro
+  #   - env file: .agents/myagent/.env
+  #   - tools directory (optional): ./.agents/myagent/tools:/usr/local/bin/agent-tools
+  #
+  # For custom images per agent, replace <<: *agent-base with:
+  #   image: your-custom-image:tag
+  #   # OR build:
+  #   # build:
+  #   #   context: .
+  #   #   dockerfile: .agents/myagent/Dockerfile
   # ============================================================================
   
   handy:
@@ -58,7 +96,7 @@ services:
     profiles: [handy]
     env_file:
       - .agents/shared.env
-      - .agents/.handy.env
+      - .agents/handy/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
       - ZEROCLAW_LITESTREAM_ENABLED=true
@@ -68,8 +106,13 @@ services:
       - data:/zeroclaw-data
       - tailscale:/var/lib/tailscale
       - type: bind
-        source: ./.agents/.handy
+        source: ./.agents/handy
         target: /agent-config
+        read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/handy/tools
+        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
@@ -78,7 +121,7 @@ services:
     profiles: [gordon]
     env_file:
       - .agents/shared.env
-      - .agents/.gordon.env
+      - .agents/gordon/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
       - ZEROCLAW_LITESTREAM_ENABLED=true
@@ -88,8 +131,13 @@ services:
       - data:/zeroclaw-data
       - tailscale:/var/lib/tailscale
       - type: bind
-        source: ./.agents/.gordon
+        source: ./.agents/gordon
         target: /agent-config
+        read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/gordon/tools
+        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
@@ -98,7 +146,7 @@ services:
     profiles: [zoe]
     env_file:
       - .agents/shared.env
-      - .agents/.zoe.env
+      - .agents/zoe/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
       - ZEROCLAW_LITESTREAM_ENABLED=true
@@ -108,8 +156,13 @@ services:
       - data:/zeroclaw-data
       - tailscale:/var/lib/tailscale
       - type: bind
-        source: ./.agents/.zoe
+        source: ./.agents/zoe
         target: /agent-config
+        read_only: true
+      # Optional: mount agent-specific tools/scripts
+      - type: bind
+        source: ./.agents/zoe/tools
+        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
