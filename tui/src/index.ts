@@ -817,14 +817,18 @@ class AgentManagerTui {
       }
 
       if (key.name === "left") {
-        this.moveView(-1);
-        key.preventDefault();
-        return;
+        if (this.focusMode !== "editor") {
+          this.moveView(-1);
+          key.preventDefault();
+          return;
+        }
       }
       if (key.name === "right") {
-        this.moveView(1);
-        key.preventDefault();
-        return;
+        if (this.focusMode !== "editor") {
+          this.moveView(1);
+          key.preventDefault();
+          return;
+        }
       }
 
       if (this.focusMode === "agents") {
@@ -2414,7 +2418,7 @@ class AgentManagerTui {
           readOnly: true,
         };
       }
-      return { content: runtime.content, readOnly: true };
+      return { content: this.formatMarkdownForDisplay(runtime.content), readOnly: true };
     }
 
     if (this.isVirtualDiffPath(filePath)) {
@@ -2644,6 +2648,34 @@ class AgentManagerTui {
     }
 
     return `${lines.join("\n")}\n`;
+  }
+
+  private formatMarkdownForDisplay(content: string): string {
+    const lines = content.replace(/\r\n/g, "\n").split("\n");
+    const out: string[] = [];
+    for (const line of lines) {
+      const heading = line.match(/^(#{1,6})\s+(.*)$/);
+      if (heading !== null) {
+        const level = heading[1].length;
+        const text = this.stripInlineMarkdown(heading[2]).trim();
+        const prefix = level === 1 ? "" : `${"  ".repeat(level - 2)}• `;
+        out.push(`${prefix}${text}`);
+        if (level <= 2 && text.length > 0) {
+          out.push(`${"  ".repeat(Math.max(0, level - 1))}${"─".repeat(Math.min(text.length, 80))}`);
+        }
+        continue;
+      }
+      out.push(this.stripInlineMarkdown(line));
+    }
+    return `${out.join("\n")}\n`;
+  }
+
+  private stripInlineMarkdown(line: string): string {
+    return line
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/\[(.*?)\]\((.*?)\)/g, "$1 ($2)");
   }
 }
 
