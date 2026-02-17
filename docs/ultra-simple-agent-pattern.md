@@ -16,7 +16,7 @@ name: zeroclaw  # Project name
 services:
   server:  # Just "server" - Docker adds the profile
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.handy.env  # Agent-specific config
     ports:
       - "3000:3000"
@@ -71,7 +71,7 @@ Or add to docker-compose for persistence:
     <<: *agent-base
     profiles: [mybot]
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.mybot.env
     ports:
       - "3003:3000"

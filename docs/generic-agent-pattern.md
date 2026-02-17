@@ -69,7 +69,7 @@ just add them as pre-configured services in docker-compose.agents.yml:
     container_name: zeroclaw-mybot
     hostname: mybot
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.mybot.env
     environment:
       - AGENT_NAME=mybot

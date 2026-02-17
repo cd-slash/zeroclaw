@@ -23,7 +23,7 @@ An **ultra-simple, scalable multi-agent system** for ZeroClaw where Docker Compo
 ├── .handy.env           # Agent configuration
 ├── .gordon.env
 ├── .zoe.env
-├── shared.env           # Shared credentials
+├── .shared.env          # Shared credentials
 ├── .handy/              # Agent identity files
 │   ├── IDENTITY.md
 │   ├── SOUL.md
@@ -42,7 +42,7 @@ handy:
   <<: *agent-base
   profiles: [handy]  # Everything isolated by this
   env_file:
-    - .agents/shared.env
+    - .agents/.shared.env
     - .agents/.handy.env
   ports:
     - "3000:3000"
@@ -122,7 +122,7 @@ zeroclaw-backups/
     └── ...
 ```
 
-**No per-agent bucket configuration!** Just set in `shared.env`:
+**No per-agent bucket configuration!** Just set in `.shared.env`:
 ```bash
 MINIO_BUCKET=zeroclaw-backups
 ```
@@ -158,7 +158,7 @@ When you restore from backup, you get everything including the agent's personali
 ### What's Protected
 - ✅ Agent configs are mounted read-only
 - ✅ Secrets in `.env` never leave the machine
-- ✅ MinIO credentials in `shared.env` (not backed up)
+- ✅ MinIO credentials in `.shared.env` (not backed up)
 
 ## Files Reference
 
