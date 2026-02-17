@@ -250,6 +250,7 @@ EOF
     
     # Create agent subdirectories
     mkdir -p "$agent_dir/skills"
+    mkdir -p "$agent_dir/tools"
     mkdir -p "$agent_dir/.build-tools"
     touch "$agent_dir/.build-tools/.gitkeep"
 
@@ -267,6 +268,12 @@ EOF
 # binary = "example-cli"
 # description = "Example CLI description"
 # sha256 = ""
+
+# [apt]
+# packages = ["jq", "ripgrep"]
+
+# [bun]
+# packages = ["typescript", "tsx"]
 
 # [[tool]]
 # name = "remote-example"
@@ -300,6 +307,7 @@ EOF
     log_info "  Agent directory: $agent_dir/"
     log_info "  - Identity files: $agent_dir/*.md"
     log_info "  - Tool manifest: $agent_dir/tools.toml"
+    log_info "  - Local tool sources: $agent_dir/tools/"
     log_info ""
     log_info "To start this agent:"
     log_info "  ./scripts/agent.sh start ${agent}"

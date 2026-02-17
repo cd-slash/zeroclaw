@@ -92,14 +92,32 @@ RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 COPY agent-setup.sh /usr/local/bin/agent-setup.sh
 RUN chmod +x /usr/local/bin/agent-setup.sh
 
-# Copy agent-specific resolved tools into image at build time.
+# Copy agent-specific resolved artifacts into image at build time.
 # These files are generated from .agents/<agent>/tools.toml by scripts/resolve-agent-tools.sh.
-RUN mkdir -p /usr/local/bin/agent-tools
-COPY --from=builder /app/.agents/${AGENT_NAME}/.build-tools/ /usr/local/bin/agent-tools/
+RUN mkdir -p /tmp/agent-build-tools /usr/local/bin/agent-tools
+COPY --from=builder /app/.agents/${AGENT_NAME}/.build-tools/ /tmp/agent-build-tools/
+
+# Install agent-specific APT packages declared in tools.toml [apt].packages
+RUN if [ -s /tmp/agent-build-tools/apt-packages.txt ]; then \
+      apt-get update && \
+      xargs -r apt-get install -y --no-install-recommends < /tmp/agent-build-tools/apt-packages.txt && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Install Bun and global packages declared in tools.toml [bun].packages
+RUN if [ -s /tmp/agent-build-tools/bun-packages.txt ]; then \
+      export BUN_INSTALL=/opt/bun && \
+      curl -fsSL https://bun.sh/install | bash && \
+      ln -sf /opt/bun/bin/bun /usr/local/bin/bun && \
+      xargs -r /usr/local/bin/bun add --global < /tmp/agent-build-tools/bun-packages.txt; \
+    fi
+
+RUN cp -a /tmp/agent-build-tools/. /usr/local/bin/agent-tools/ && \
+    rm -f /usr/local/bin/agent-tools/apt-packages.txt /usr/local/bin/agent-tools/bun-packages.txt /usr/local/bin/agent-tools/.gitkeep
 RUN find /usr/local/bin/agent-tools -maxdepth 1 -type f ! -name ".*.tool" -exec chmod +x {} \; || true
 
 # Add agent-tools to PATH globally
-ENV PATH="/usr/local/bin/agent-tools:${PATH}"
+ENV PATH="/opt/bun/bin:/usr/local/bin/agent-tools:${PATH}"
 
 # Environment setup
 # Use consistent workspace path
