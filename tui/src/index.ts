@@ -54,6 +54,7 @@ interface ToolCatalogItem {
 }
 
 interface ToolCatalogModalState {
+  mode: "catalog" | "apt" | "bun";
   items: ToolCatalogItem[];
   selectedIndex: number;
 }
@@ -67,6 +68,30 @@ const BACKUP_SCRIPT = join(ROOT_DIR, "scripts/agent-backup.sh");
 const LITESTREAM_SCRIPT = join(ROOT_DIR, "scripts/litestream.sh");
 const BACKUPS_DIR = join(ROOT_DIR, ".backups");
 const AGENT_TOOLS_REPO = join(ROOT_DIR, "../agent-tools");
+const APT_TOOL_SUGGESTIONS = [
+  "jq",
+  "ripgrep",
+  "fd-find",
+  "yq",
+  "curl",
+  "git",
+  "unzip",
+  "zip",
+  "python3",
+  "python3-pip",
+  "sqlite3",
+];
+const BUN_TOOL_SUGGESTIONS = [
+  "typescript",
+  "tsx",
+  "@openai/codex",
+  "prettier",
+  "eslint",
+  "@anthropic-ai/sdk",
+  "pnpm",
+  "npm-check-updates",
+  "http-server",
+];
 
 const THEME = {
   bg: "#0b1018",
@@ -541,7 +566,7 @@ class AgentManagerTui {
           return;
         }
         if (key.name === "return" || key.name === "enter") {
-          this.installSelectedToolCatalogItem();
+          this.applyToolCatalogSelection();
           key.preventDefault();
           return;
         }
@@ -1084,15 +1109,23 @@ class AgentManagerTui {
       return "";
     }
     const lines: string[] = [];
-    const { items, selectedIndex } = this.toolCatalogModalState;
-    lines.push("Select a tool to add to tools.toml");
+    const { mode, items, selectedIndex } = this.toolCatalogModalState;
+    if (mode === "catalog") {
+      lines.push("Select a catalog binary tool to add to tools.toml");
+    } else if (mode === "apt") {
+      lines.push("Select an APT package to add to [apt].packages");
+    } else {
+      lines.push("Select a Bun global package to add to [bun].packages");
+    }
     lines.push("");
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const marker = i === selectedIndex ? ">" : " ";
       lines.push(`${marker} ${item.name} (${item.binary})`);
       lines.push(`    ${item.description}`);
-      lines.push(`    source: ${item.sourcePath}`);
+      if (mode === "catalog") {
+        lines.push(`    source: ${item.sourcePath}`);
+      }
     }
     return lines.join("\n");
   }
@@ -1850,8 +1883,36 @@ class AgentManagerTui {
       return;
     }
 
-    this.toolCatalogModalState = { items: catalog, selectedIndex: 0 };
+    this.toolCatalogModalState = { mode: "catalog", items: catalog, selectedIndex: 0 };
     this.toolCatalogTitle.content = "Tool Catalog - select a tool to add";
+    this.toolCatalogHint.content = "Up/Down select | Enter add [[tool]] | Esc close";
+    this.renderAll();
+  }
+
+  private promptAddAptPackages(): void {
+    this.openPackageCatalogModal("apt");
+  }
+
+  private promptAddBunPackages(): void {
+    this.openPackageCatalogModal("bun");
+  }
+
+  private openPackageCatalogModal(mode: "apt" | "bun"): void {
+    const suggestions = mode === "apt" ? APT_TOOL_SUGGESTIONS : BUN_TOOL_SUGGESTIONS;
+    const items: ToolCatalogItem[] = suggestions.map((name) => ({
+      id: name,
+      name,
+      description: mode === "apt" ? "APT package" : "Bun global package",
+      binary: mode,
+      sourcePath: "",
+    }));
+    this.toolCatalogModalState = { mode, items, selectedIndex: 0 };
+    this.toolCatalogTitle.content = mode === "apt"
+      ? "APT Package Catalog - select package to add"
+      : "Bun Package Catalog - select package to add";
+    this.toolCatalogHint.content = mode === "apt"
+      ? "Up/Down select | Enter add to [apt].packages | Esc close"
+      : "Up/Down select | Enter add to [bun].packages | Esc close";
     this.renderAll();
   }
 
@@ -1870,13 +1931,29 @@ class AgentManagerTui {
     this.renderAll();
   }
 
-  private installSelectedToolCatalogItem(): void {
+  private applyToolCatalogSelection(): void {
     const agent = this.getSelectedAgent();
     if (agent === null || this.toolCatalogModalState === null) {
       return;
     }
+    const { mode } = this.toolCatalogModalState;
     const item = this.toolCatalogModalState.items[this.toolCatalogModalState.selectedIndex];
     if (item === undefined) {
+      return;
+    }
+
+    if (mode === "apt" || mode === "bun") {
+      const toolsToml = this.ensureToolsToml(agent);
+      let content = this.safeRead(toolsToml);
+      const existing = this.parseTomlStringArray(content, mode);
+      content = this.upsertTomlStringArray(content, mode, [...existing, item.name]);
+      writeFileSync(toolsToml, content, "utf-8");
+      this.message = mode === "apt"
+        ? `Added APT package '${item.name}' to ${relative(ROOT_DIR, toolsToml)}`
+        : `Added Bun package '${item.name}' to ${relative(ROOT_DIR, toolsToml)}`;
+      this.closeToolCatalogModal();
+      this.loadCurrentFileByPath(toolsToml);
+      this.renderAll();
       return;
     }
 
@@ -1909,60 +1986,6 @@ class AgentManagerTui {
     this.closeToolCatalogModal();
     this.loadCurrentFileByPath(toolsToml);
     this.renderAll();
-  }
-
-  private promptAddAptPackages(): void {
-    const agent = this.getSelectedAgent();
-    if (agent === null) {
-      return;
-    }
-    this.openPrompt({
-      title: "Add APT package(s) to tools.toml [apt]",
-      placeholder: "jq ripgrep fd-find",
-      handler: (value) => {
-        const names = value.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v.length > 0);
-        if (names.length === 0) {
-          this.message = "APT package update cancelled";
-          this.renderAll();
-          return;
-        }
-        const toolsToml = this.ensureToolsToml(agent);
-        let content = this.safeRead(toolsToml);
-        const existing = this.parseTomlStringArray(content, "apt");
-        content = this.upsertTomlStringArray(content, "apt", [...existing, ...names]);
-        writeFileSync(toolsToml, content, "utf-8");
-        this.message = `Added APT packages to ${relative(ROOT_DIR, toolsToml)}`;
-        this.loadCurrentFileByPath(toolsToml);
-        this.renderAll();
-      },
-    });
-  }
-
-  private promptAddBunPackages(): void {
-    const agent = this.getSelectedAgent();
-    if (agent === null) {
-      return;
-    }
-    this.openPrompt({
-      title: "Add Bun global package(s) to tools.toml [bun]",
-      placeholder: "typescript tsx @openai/codex",
-      handler: (value) => {
-        const names = value.split(/[\s,]+/).map((v) => v.trim()).filter((v) => v.length > 0);
-        if (names.length === 0) {
-          this.message = "Bun package update cancelled";
-          this.renderAll();
-          return;
-        }
-        const toolsToml = this.ensureToolsToml(agent);
-        let content = this.safeRead(toolsToml);
-        const existing = this.parseTomlStringArray(content, "bun");
-        content = this.upsertTomlStringArray(content, "bun", [...existing, ...names]);
-        writeFileSync(toolsToml, content, "utf-8");
-        this.message = `Added Bun packages to ${relative(ROOT_DIR, toolsToml)}`;
-        this.loadCurrentFileByPath(toolsToml);
-        this.renderAll();
-      },
-    });
   }
 
   private newFileForCurrentView(): void {
