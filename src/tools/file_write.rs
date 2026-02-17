@@ -1,4 +1,5 @@
 use super::traits::{Tool, ToolResult};
+use crate::memory::managed_docs::is_managed_doc_relative_path;
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::json;
@@ -75,6 +76,17 @@ impl Tool for FileWriteTool {
                 success: false,
                 output: String::new(),
                 error: Some(format!("Path not allowed by security policy: {path}")),
+            });
+        }
+
+        if is_managed_doc_relative_path(path) {
+            return Ok(ToolResult {
+                success: false,
+                output: String::new(),
+                error: Some(
+                    "Managed markdown docs are read-only via file_write. Use docs_append or docs_replace_section instead."
+                        .into(),
+                ),
             });
         }
 
@@ -377,6 +389,28 @@ mod tests {
         assert!(!result.success);
         assert!(result.error.as_deref().unwrap_or("").contains("read-only"));
         assert!(!dir.join("out.txt").exists());
+
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+    }
+
+    #[tokio::test]
+    async fn file_write_blocks_managed_docs() {
+        let dir = std::env::temp_dir().join("zeroclaw_test_file_write_managed_docs");
+        let _ = tokio::fs::remove_dir_all(&dir).await;
+        tokio::fs::create_dir_all(&dir).await.unwrap();
+
+        let tool = FileWriteTool::new(test_security(dir.clone()));
+        let result = tool
+            .execute(json!({"path": "MEMORY.md", "content": "blocked"}))
+            .await
+            .unwrap();
+
+        assert!(!result.success);
+        assert!(result
+            .error
+            .as_deref()
+            .unwrap_or("")
+            .contains("docs_append"));
 
         let _ = tokio::fs::remove_dir_all(&dir).await;
     }

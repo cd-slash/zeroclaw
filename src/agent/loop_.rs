@@ -2370,6 +2370,18 @@ pub async fn run(
             "Write file contents. Use when: applying focused edits, scaffolding files, updating docs/code. Don't use when: side effects are unclear or file ownership is uncertain.",
         ),
         (
+            "docs_read",
+            "Read managed markdown docs from the event store. Use when: checking AGENTS/SOUL/TOOLS/IDENTITY/USER/HEARTBEAT/BOOTSTRAP/MEMORY or skills docs.",
+        ),
+        (
+            "docs_append",
+            "Append markdown blocks to managed docs. Prefer for MEMORY.md incremental updates so history stays event-sourced and efficient.",
+        ),
+        (
+            "docs_replace_section",
+            "Replace or create a specific section in a managed doc without rewriting the whole document.",
+        ),
+        (
             "memory_store",
             "Save to memory. Use when: preserving durable preferences, decisions, key context. Don't use when: information is transient/noisy/sensitive without need.",
         ),
@@ -2798,6 +2810,18 @@ pub async fn process_message(config: Config, message: &str) -> Result<String> {
         ("shell", "Execute terminal commands."),
         ("file_read", "Read file contents."),
         ("file_write", "Write file contents."),
+        (
+            "docs_read",
+            "Read managed markdown docs from the event store.",
+        ),
+        (
+            "docs_append",
+            "Append markdown blocks to managed docs (preferred for MEMORY.md).",
+        ),
+        (
+            "docs_replace_section",
+            "Replace or create a section in a managed markdown doc.",
+        ),
         ("memory_store", "Save to memory."),
         ("memory_recall", "Search memory."),
         ("memory_forget", "Delete a memory entry."),
