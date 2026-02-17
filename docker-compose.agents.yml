@@ -1,0 +1,119 @@
+# Multi-Agent Docker Compose for ZeroClaw
+#
+# Ultra-simple pattern: One service definition, use profiles for different agents.
+# Docker Compose handles all the naming automatically.
+#
+# Usage:
+#   docker compose -f docker-compose.agents.yml --profile handy up -d
+#   docker compose -f docker-compose.agents.yml --profile gordon up -d
+#   docker compose -f docker-compose.agents.yml --profile zoe up -d
+#
+# Or create new agents:
+#   ./scripts/agent.sh create mybot
+#   docker compose -f docker-compose.agents.yml --profile mybot up -d
+#
+# Container names will be auto-generated like: zeroclaw-handy-server-1
+
+name: zeroclaw
+
+x-agent-base: &agent-base
+  build:
+    context: .
+    target: dev
+  restart: unless-stopped
+  devices:
+    - /dev/net/tun:/dev/net/tun
+  cap_add:
+    - net_admin
+  healthcheck:
+    test: ["CMD", "zeroclaw", "doctor"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 10s
+
+services:
+  # ============================================================================
+  # Pre-configured Agents
+  # ============================================================================
+  # Each agent has:
+  #   - A profile name (handy, gordon, zoe)
+  #   - A specific port mapping
+  #   - A bind mount for the agent's config directory
+  #
+  # Docker Compose automatically:
+  #   - Names containers like: zeroclaw-handy-1, zeroclaw-gordon-1
+  #   - Creates isolated volumes per service
+  #   - Manages all networking
+  #
+  # To add a new agent, copy one of these services and change:
+  #   - service name (e.g., mybot:)
+  #   - profile name (e.g., profiles: [mybot])
+  #   - port mapping (e.g., - "3003:3000")
+  #   - config directory (e.g., ./.agents/.mybot:/agent-config:ro)
+  # ============================================================================
+  
+  handy:
+    <<: *agent-base
+    profiles: [handy]
+    env_file:
+      - .agents/shared.env
+      - .agents/.handy.env
+    environment:
+      - ZEROCLAW_GATEWAY_PORT=3000
+      - ZEROCLAW_LITESTREAM_ENABLED=true
+      - AGENT_CONFIG_DIR=/agent-config
+    # No host ports exposed - agents use Tailscale for secure networking
+    volumes:
+      - data:/zeroclaw-data
+      - tailscale:/var/lib/tailscale
+      - type: bind
+        source: ./.agents/.handy
+        target: /agent-config
+        read_only: true
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
+  gordon:
+    <<: *agent-base
+    profiles: [gordon]
+    env_file:
+      - .agents/shared.env
+      - .agents/.gordon.env
+    environment:
+      - ZEROCLAW_GATEWAY_PORT=3000
+      - ZEROCLAW_LITESTREAM_ENABLED=true
+      - AGENT_CONFIG_DIR=/agent-config
+    # No host ports exposed - agents use Tailscale for secure networking
+    volumes:
+      - data:/zeroclaw-data
+      - tailscale:/var/lib/tailscale
+      - type: bind
+        source: ./.agents/.gordon
+        target: /agent-config
+        read_only: true
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
+  zoe:
+    <<: *agent-base
+    profiles: [zoe]
+    env_file:
+      - .agents/shared.env
+      - .agents/.zoe.env
+    environment:
+      - ZEROCLAW_GATEWAY_PORT=3000
+      - ZEROCLAW_LITESTREAM_ENABLED=true
+      - AGENT_CONFIG_DIR=/agent-config
+    # No host ports exposed - agents use Tailscale for secure networking
+    volumes:
+      - data:/zeroclaw-data
+      - tailscale:/var/lib/tailscale
+      - type: bind
+        source: ./.agents/.zoe
+        target: /agent-config
+        read_only: true
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
+volumes:
+  # Anonymous volumes - Docker Compose creates isolated ones per profile
+  data:
+  tailscale:

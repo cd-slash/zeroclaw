@@ -876,7 +876,8 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
         }
     }
 
-    None
+    // Finally, fall back to the explicit api_key from config.toml
+    api_key.map(str::trim).filter(|k| !k.is_empty()).map(|k| k.to_string())
 }
 
 fn parse_custom_provider_url(
