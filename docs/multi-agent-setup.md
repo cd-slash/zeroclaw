@@ -11,7 +11,7 @@ ZeroClaw supports running multiple isolated agents, each with their own configur
 
 ```bash
 # 1. Set your API key in shared config
-nano .agents/shared.env
+nano .agents/.shared.env
 
 # 2. Start an agent
 ./scripts/agent.sh start handy
@@ -41,7 +41,7 @@ open http://localhost:3000
 │  └─────┬──────────┘  └─────┬──────────┘  └─────┬──────────┘       │
 │        │                   │                   │                   │
 │  ┌─────┴───────────────────┴───────────────────┴──────┐           │
-│  │              .agents/shared.env                     │           │
+│  │              .agents/.shared.env                    │           │
 │  │         (API keys, common settings)                 │           │
 │  └─────────────────────────────────────────────────────┘           │
 └─────────────────────────────────────────────────────────────────────┘
@@ -50,7 +50,7 @@ open http://localhost:3000
 Each agent has:
 - **Isolated storage**: Separate Docker volumes (no data conflicts)
 - **Unique identity**: Distinct hostname, container name, and port
-- **Shared base config**: Common settings from `shared.env`
+- **Shared base config**: Common settings from `.shared.env`
 - **Agent-specific config**: Hidden `.env` file (e.g., `.handy.env`)
 - **Agent identity files**: Markdown files defining personality, behavior, and skills
 
@@ -58,7 +58,7 @@ Each agent has:
 
 ```
 .agents/
-├── shared.env              # Common configuration (API keys, defaults)
+├── .shared.env             # Common configuration (API keys, defaults)
 ├── .handy.env              # DevOps agent config (HIDDEN FILE)
 ├── .handy/                 # DevOps agent identity
 │   ├── IDENTITY.md         # Who the agent is
@@ -220,7 +220,7 @@ Edit `docker-compose.agents.yml` and add the service:
     container_name: zeroclaw-mybot
     hostname: mybot
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.mybot.env
     environment:
       - AGENT_NAME=mybot
@@ -298,12 +298,12 @@ The agent will load both the `.env` configuration and the identity files from `.
 Configuration is loaded in order (later overrides earlier):
 
 1. **Base config** (`dev/config.template.toml` in image)
-2. **Environment variables** from `shared.env` (common settings)
+2. **Environment variables** from `.shared.env` (common settings)
 3. **Environment variables** from `.agent.env` (hidden agent-specific settings)
 4. **Runtime overrides** from `environment:` section
 5. **Identity files** from `.agents/.agent/` directory (personality and behavior)
 
-### Shared Configuration (shared.env)
+### Shared Configuration (.shared.env)
 
 Put common settings here (API keys, defaults):
 
@@ -624,7 +624,7 @@ docker compose down
 docker volume create zeroclaw-data-handy
 docker run --rm -v zeroclaw-data:/source -v zeroclaw-data-handy:/dest alpine cp -r /source/* /dest/
 
-# 3. Update .agents/shared.env with your API key
+# 3. Update .agents/.shared.env with your API key
 
 # 4. Start agent
 ./scripts/agent.sh start handy
@@ -633,7 +633,7 @@ docker run --rm -v zeroclaw-data:/source -v zeroclaw-data-handy:/dest alpine cp 
 ## Security Considerations
 
 - Each agent has isolated storage (no cross-contamination)
-- Agents share only the `shared.env` (keep secrets there)
+- Agents share only the `.shared.env` (keep secrets there)
 - Container names are prefixed (`zeroclaw-*`)
 - Profiles prevent accidental multi-agent startup
 - Each agent can have different autonomy levels

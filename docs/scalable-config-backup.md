@@ -57,7 +57,7 @@ Output includes:
     container_name: zeroclaw-mynewagent
     hostname: mynewagent
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.mynewagent.env
     environment:
       - AGENT_NAME=mynewagent

@@ -22,7 +22,8 @@ This directory contains environment configurations and identity templates for in
 
 ```
 .agents/
-├── shared.env              # Common configuration (API keys, defaults)
+├── .shared.env             # Common configuration (API keys, defaults, ignored)
+├── .shared.env.example     # Safe template (tracked)
 ├── handy/                  # DevOps agent directory
 │   ├── .env                # Agent config (HIDDEN FILE - contains secrets)
 │   ├── IDENTITY.md         # Who the agent is
@@ -51,7 +52,7 @@ This directory contains environment configurations and identity templates for in
 Settings are loaded in this order (later overrides earlier):
 
 1. **Base config** from Docker image
-2. **shared.env** - Common settings for all agents
+2. **.shared.env** - Common settings for all agents
 3. **`<agent>/.env`** - Agent-specific settings (HIDDEN FILE)
 4. **Runtime environment** from docker-compose
 5. **Identity files** in `.agents/<agent>/` directory
@@ -241,7 +242,7 @@ See docker-compose.agents.yml comments for the custom Dockerfile approach if nee
 
 ## Important Files
 
-- **shared.env** - Put your API key here
+- **.shared.env** - Put your API key here (ignored by git)
 - **handy/.env**, **gordon/.env**, **zoe/.env** - Agent configurations (HIDDEN)
 - **handy/**, **gordon/**, **zoe/** - Agent directories (config + identity + tools)
 - **docker-compose.agents.yml** - Service definitions
@@ -290,7 +291,7 @@ No data is shared between agents. Each agent's workspace contains its own:
 ## Security Notes
 
 - **Env files** (`.env`) are in `.gitignore` and should never be committed
-- **Never commit API keys** - keep them in `shared.env` or agent `.env` files
+- **Never commit API keys** - keep them in `.shared.env` or agent `.env` files
 - **Agent directories** (`handy/`, `gordon/`, etc.) can be committed if they don't contain secrets
 - **Each agent is isolated** - no cross-contamination of data
 - **Agent-specific tools** in `tools/` subdirectory are isolated to that agent

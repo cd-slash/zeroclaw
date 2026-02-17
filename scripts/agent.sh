@@ -232,36 +232,12 @@ create_agent() {
     
     # Create agent config
     cat > "$env_file" << EOF
-# =============================================================================
-# Agent: ${agent}
-# Created: $(date)
-# =============================================================================
-
-# Agent identity
 AGENT_NAME=${agent}
 AGENT_ROLE=general
 
-# Model configuration
+# Override .shared.env defaults only when needed.
 ZEROCLAW_MODEL=anthropic/claude-sonnet-4-20250514
 ZEROCLAW_TEMPERATURE=0.7
-
-# Gateway configuration
-ZEROCLAW_GATEWAY_PORT=3000
-ZEROCLAW_ALLOW_PUBLIC_BIND=true
-
-# Tool configuration
-ZEROCLAW_SHELL_ENABLED=true
-ZEROCLAW_FILE_ENABLED=true
-ZEROCLAW_BROWSER_ENABLED=true
-
-# Memory configuration
-# Options: sqlite (vector-based with semantic search), markdown (file-based), none
-ZEROCLAW_MEMORY_BACKEND=sqlite
-ZEROCLAW_MEMORY_AUTO_SAVE=true
-
-# Agent config directory (mounted into container)
-# The backup_workspace tool includes this directory automatically
-AGENT_CONFIG_DIR=/agent-config
 EOF
     
     # Create agent subdirectories
@@ -442,7 +418,7 @@ Examples:
 
 Configuration:
   Agent configs are in: .agents/<agent_name>/.env
-  Shared config is in:  .agents/shared.env
+  Shared config is in:  .agents/.shared.env
   Agent directory:      .agents/<agent_name>/ (contains identity files, tools/)
   Compose file:         docker-compose.agents.yml
 

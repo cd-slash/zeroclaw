@@ -92,7 +92,7 @@ zeroclaw/
 │   │   └── skills/
 │   ├── .gordon.env/.gordon/    # Similar structure
 │   ├── .zoe.env/.zoe/          # Similar structure
-│   ├── shared.env              # Common settings
+│   ├── .shared.env             # Common settings
 │   ├── minio.env.example       # MinIO config template
 │   ├── litestream.template.yml # Litestream config template
 │   └── templates/              # Templates for new agents
