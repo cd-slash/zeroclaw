@@ -35,6 +35,9 @@ credentials.json
 # Multi-agent configuration - ignore all .env files in agent directories
 .agents/*/.env
 .agents/.shared.env
+.agents/*/.build-tools/*
+!.agents/*/.build-tools/
+!.agents/*/.build-tools/.gitkeep
 
 # Ignore skills/tools directories (user-created content)
 .agents/*/skills/*

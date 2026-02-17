@@ -1,0 +1,9 @@
+# Tool declarations for zoe image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh zoe
+
+[[tool]]
+name = "paperless-ngx-cli"
+source = "path"
+path = ".agents/zoe/tools/pngx"
+binary = "pngx"
+description = "Paperless-ngx command-line client for search, upload, and document automation."
