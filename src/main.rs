@@ -36,7 +36,7 @@ use anyhow::{bail, Result};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use dialoguer::{Input, Password};
 use serde::{Deserialize, Serialize};
-use std::io::Write;
+use std::path::PathBuf;
 use tracing::{info, warn};
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -1083,6 +1083,84 @@ async fn main() -> Result<()> {
         } => integrations::handle_command(integration_command, &config),
 
         Commands::Skills { skill_command } => skills::handle_command(skill_command, &config),
+
+        Commands::Docs { docs_command } => {
+            use memory::managed_docs::normalize_doc_id;
+
+            match docs_command {
+                DocsCommands::List => {
+                    let docs = memory::docsd_client::list_docs(&config.workspace_dir)?;
+                    if docs.is_empty() {
+                        println!("No managed documents initialized.");
+                    } else {
+                        for doc in docs {
+                            println!("{doc}");
+                        }
+                    }
+                    Ok(())
+                }
+                DocsCommands::Read { doc } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    match memory::docsd_client::read_doc(&config.workspace_dir, &doc_id)? {
+                        Some(content) => {
+                            print!("{content}");
+                            Ok(())
+                        }
+                        None => {
+                            bail!("Managed document not initialized: {doc_id}");
+                        }
+                    }
+                }
+                DocsCommands::Append {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    memory::docsd_client::append_doc(
+                        &config.workspace_dir,
+                        &doc_id,
+                        section.as_deref(),
+                        &content,
+                        "cli:docs_append",
+                    )?;
+                    println!("Appended content to {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::ReplaceSection {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    memory::docsd_client::replace_doc_section(
+                        &config.workspace_dir,
+                        &doc_id,
+                        &section,
+                        &content,
+                        "cli:docs_replace_section",
+                    )?;
+                    println!("Updated section '{section}' in {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::Materialize => {
+                    let count = memory::docsd_client::materialize_docs(&config.workspace_dir)?;
+                    println!("Materialized {count} managed docs");
+                    Ok(())
+                }
+                DocsCommands::Doctor => {
+                    let status = memory::docsd_client::probe_docsd(&config.workspace_dir)?;
+                    println!("{status}");
+                    Ok(())
+                }
+            }
+        }
 
         Commands::Docs { docs_command } => {
             use memory::managed_docs::normalize_doc_id;
