@@ -226,6 +226,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
+        Box::new(BackupTool::new(workspace_dir.to_path_buf())),
+        Box::new(SnapshotTool::new(workspace_dir.to_path_buf())),
     ];
 
     if browser_config.enabled {
