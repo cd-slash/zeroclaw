@@ -34,25 +34,15 @@ credentials.json
 .agents/.*.env
 .agents/*/.env
 
-# Ignore agent data directories (can be recreated)
-.agents/handy/
-.agents/gordon/
-.agents/zoe/
-
-# But allow tracking agent templates and documentation
-!.agents/templates/
-
-# Ignore skills directories (user-created content)
+# Ignore skills/tools directories (user-created content)
 .agents/*/skills/*
 !.agents/*/skills/.gitkeep
-
-# Ignore tools directories (user-created content)
 .agents/*/tools/*
 !.agents/*/tools/.gitkeep
 
-# Templates should be committed
+# Templates directory is tracked
 !.agents/templates/
 
-# MinIO credentials (copy from minio.env.example)
+# MinIO credentials
 .agents/minio.env
 .minio.env
