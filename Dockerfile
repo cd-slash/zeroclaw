@@ -61,6 +61,8 @@ EOF
 # ── Stage 2: Development Runtime (Debian with Tailscale) ─────
 FROM debian:trixie-slim@sha256:f6e2cfac5cf956ea044b4bd75e6397b4372ad88fe00908045e9a0d21712ae3ba AS dev
 
+ARG AGENT_NAME="_default"
+
 # Install runtime dependencies + basic debug tools + Tailscale support
 RUN apt-get update && apt-get install -y \
     ca-certificates \
