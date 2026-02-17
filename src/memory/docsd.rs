@@ -25,6 +25,7 @@ pub struct DocsdResponse {
     pub docs: Option<Vec<String>>,
     pub seeded_docs: Option<usize>,
     pub materialized_docs: Option<usize>,
+    pub socket_path: Option<String>,
 }
 
 impl DocsdResponse {
@@ -36,6 +37,7 @@ impl DocsdResponse {
             docs: None,
             seeded_docs: None,
             materialized_docs: None,
+            socket_path: None,
         }
     }
 
@@ -47,6 +49,7 @@ impl DocsdResponse {
             docs: None,
             seeded_docs: None,
             materialized_docs: None,
+            socket_path: None,
         }
     }
 }
@@ -121,8 +124,20 @@ fn handle_client(
                 docs: None,
                 seeded_docs: Some(report.seeded_docs),
                 materialized_docs: Some(report.materialized_docs),
+                socket_path: None,
             }
         }
+        "health" => DocsdResponse {
+            ok: true,
+            message: Some("docsd healthy".to_string()),
+            content: None,
+            docs: None,
+            seeded_docs: None,
+            materialized_docs: None,
+            socket_path: Some(
+                std::env::var("DOCSD_SOCKET").unwrap_or_else(|_| "(default)".to_string()),
+            ),
+        },
         "list" => DocsdResponse {
             ok: true,
             message: None,
@@ -130,6 +145,7 @@ fn handle_client(
             docs: Some(store.list_doc_ids()?),
             seeded_docs: None,
             materialized_docs: None,
+            socket_path: None,
         },
         "read" => {
             let doc = req.doc.unwrap_or_default();
@@ -150,6 +166,7 @@ fn handle_client(
                     docs: None,
                     seeded_docs: None,
                     materialized_docs: None,
+                    socket_path: None,
                 },
                 None => DocsdResponse::error(format!("managed document not initialized: {doc_id}")),
             }
@@ -200,6 +217,7 @@ fn handle_client(
                 docs: None,
                 seeded_docs: None,
                 materialized_docs: Some(count),
+                socket_path: None,
             }
         }
         other => DocsdResponse::error(format!("unsupported action: {other}")),

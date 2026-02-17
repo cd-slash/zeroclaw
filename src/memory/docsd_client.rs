@@ -27,7 +27,7 @@ fn configured_socket_path(workspace_dir: &Path) -> Option<PathBuf> {
 
 fn request_via_docsd(socket_path: &Path, request: &DocsdRequest) -> anyhow::Result<DocsdResponse> {
     let mut last_err = None;
-    for _ in 0..10 {
+    for _ in 0..40 {
         match UnixStream::connect(socket_path) {
             Ok(mut stream) => {
                 stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
@@ -239,4 +239,33 @@ pub fn materialize_docs(workspace_dir: &Path) -> anyhow::Result<usize> {
 
     let store = ManagedDocStore::open(workspace_dir)?;
     store.materialize_all_docs()
+}
+
+pub fn probe_docsd(workspace_dir: &Path) -> anyhow::Result<String> {
+    let socket = configured_socket_path(workspace_dir)
+        .ok_or_else(|| anyhow::anyhow!("DOCSD socket is not configured or not present"))?;
+    let response = request_via_docsd(
+        &socket,
+        &DocsdRequest {
+            action: "health".to_string(),
+            doc: None,
+            section: None,
+            content: None,
+            actor: Some("runtime:probe".to_string()),
+            scaffold_dir: None,
+        },
+    )?;
+    if response.ok {
+        let detail = response
+            .socket_path
+            .unwrap_or_else(|| socket.display().to_string());
+        Ok(format!("docsd healthy via {}", detail))
+    } else {
+        Err(anyhow::anyhow!(
+            "docsd health check failed: {}",
+            response
+                .message
+                .unwrap_or_else(|| "unknown error".to_string())
+        ))
+    }
 }

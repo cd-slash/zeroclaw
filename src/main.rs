@@ -290,6 +290,8 @@ enum DocsCommands {
     },
     /// Re-render all managed docs from the event log into workspace files
     Materialize,
+    /// Probe docsd socket health for managed-docs operations
+    Doctor,
 }
 
 #[derive(Subcommand, Debug)]
@@ -742,6 +744,11 @@ async fn main() -> Result<()> {
                 DocsCommands::Materialize => {
                     let count = memory::docsd_client::materialize_docs(&config.workspace_dir)?;
                     println!("Materialized {count} managed docs");
+                    Ok(())
+                }
+                DocsCommands::Doctor => {
+                    let status = memory::docsd_client::probe_docsd(&config.workspace_dir)?;
+                    println!("{status}");
                     Ok(())
                 }
             }

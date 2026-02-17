@@ -93,6 +93,20 @@ const BUN_TOOL_SUGGESTIONS = [
   "http-server",
 ];
 
+const MANAGED_DOCS = [
+  "AGENTS.md",
+  "SOUL.md",
+  "TOOLS.md",
+  "IDENTITY.md",
+  "USER.md",
+  "HEARTBEAT.md",
+  "BOOTSTRAP.md",
+  "MEMORY.md",
+];
+
+const VIRTUAL_RUNTIME_PREFIX = "@runtime:";
+const VIRTUAL_DIFF_PREFIX = "@diff:";
+
 const THEME = {
   bg: "#0b1018",
   panel: "#142033",
@@ -150,6 +164,7 @@ class AgentManagerTui {
   private envModalState: EnvModalState | null = null;
   private toolCatalogModalState: ToolCatalogModalState | null = null;
   private focusMode: "agents" | "files" | "editor" = "agents";
+  private runtimeSummaryCache = new Map<string, { at: number; value: { total: number; available: number; changed: number } }>();
 
   private renderer!: Awaited<ReturnType<typeof createCliRenderer>>;
   private rootLayout!: BoxRenderable;
@@ -925,7 +940,9 @@ class AgentManagerTui {
     this.headerText.content = this.renderHeader();
     this.agentsText.content = this.renderAgentsList();
     this.tabsText.content = this.renderTabs();
-    this.dashboardText.content = this.renderDashboard();
+    if (this.currentView === "dashboard") {
+      this.dashboardText.content = this.renderDashboard();
+    }
     this.fileListText.content = this.renderFileList();
     this.logsText.content = this.logs.length === 0 ? "No logs yet." : this.logs.join("\n");
     this.opsText.content = this.renderOps();
@@ -1015,6 +1032,7 @@ class AgentManagerTui {
     const envMap = this.parseEnv(envText);
     const envErrors = this.validateEnv(envText);
     const identityFiles = this.getIdentityFiles(agent);
+    const runtimeSummary = this.getRuntimeManagedDocsSummary(agent);
     const skillFiles = this.getSkillFiles(agent);
     const toolFiles = this.getToolFiles(agent);
 
@@ -1034,6 +1052,8 @@ class AgentManagerTui {
     lines.push("");
     lines.push("Content Summary");
     lines.push(`  Identity docs  ${identityFiles.length}`);
+    lines.push(`  Runtime docs   ${runtimeSummary.available}/${runtimeSummary.total}`);
+    lines.push(`  Drift vs base  ${runtimeSummary.changed}`);
     lines.push(`  Skill files    ${skillFiles.length}`);
     lines.push(`  Tool files     ${toolFiles.length}`);
     if (envErrors.length > 0) {
@@ -1067,7 +1087,7 @@ class AgentManagerTui {
     for (let i = 0; i < files.length; i++) {
       const marker = i === selected ? ">" : " ";
       const file = files[i];
-      lines.push(`${marker} ${relative(this.getSelectedAgent()!.dir, file)}`);
+      lines.push(`${marker} ${this.displayFileLabel(file)}`);
     }
     return lines.join("\n");
   }
@@ -1291,6 +1311,12 @@ class AgentManagerTui {
       return;
     }
 
+    if (this.isVirtualDocPath(this.currentFilePath)) {
+      this.message = "Virtual runtime/diff docs are read-only in TUI";
+      this.renderAll();
+      return;
+    }
+
     const content = this.editor.plainText;
     writeFileSync(this.currentFilePath, content, "utf-8");
     this.loadedFileText = content;
@@ -1321,11 +1347,20 @@ class AgentManagerTui {
   }
 
   private getIdentityFiles(agent: AgentInfo): string[] {
-    return readdirSync(agent.dir, { withFileTypes: true })
+    const scaffoldFiles = readdirSync(agent.dir, { withFileTypes: true })
       .filter((entry) => entry.isFile())
       .map((entry) => join(agent.dir, entry.name))
       .filter((fullPath) => fullPath.endsWith(".md"))
       .sort((a, b) => a.localeCompare(b));
+
+    const runtimeFiles = agent.status === "running"
+      ? MANAGED_DOCS.map((doc) => `${VIRTUAL_RUNTIME_PREFIX}${doc}`)
+      : [];
+    const diffFiles = agent.status === "running"
+      ? MANAGED_DOCS.map((doc) => `${VIRTUAL_DIFF_PREFIX}${doc}`)
+      : [];
+
+    return [...runtimeFiles, ...diffFiles, ...scaffoldFiles];
   }
 
   private getSkillFiles(agent: AgentInfo): string[] {
@@ -2174,6 +2209,11 @@ class AgentManagerTui {
     }
 
     const target = this.currentFilePath;
+    if (this.isVirtualDocPath(target)) {
+      this.message = "Runtime/diff virtual docs cannot be deleted";
+      this.renderAll();
+      return;
+    }
     const display = relative(ROOT_DIR, target);
 
     this.openPrompt({
@@ -2358,6 +2398,49 @@ class AgentManagerTui {
   }
 
   private loadEditorContentForPath(filePath: string): { content: string; readOnly: boolean } {
+    if (this.isVirtualRuntimeDocPath(filePath)) {
+      const agent = this.getSelectedAgent();
+      if (agent === null) {
+        return { content: "No agent selected", readOnly: true };
+      }
+      const doc = this.virtualDocName(filePath);
+      if (doc === null) {
+        return { content: "Invalid runtime document selection", readOnly: true };
+      }
+      const runtime = this.readRuntimeManagedDoc(agent, doc);
+      if (!runtime.ok) {
+        return {
+          content: `Runtime doc unavailable for ${doc}:\n${runtime.error}`,
+          readOnly: true,
+        };
+      }
+      return { content: runtime.content, readOnly: true };
+    }
+
+    if (this.isVirtualDiffPath(filePath)) {
+      const agent = this.getSelectedAgent();
+      if (agent === null) {
+        return { content: "No agent selected", readOnly: true };
+      }
+      const doc = this.virtualDocName(filePath);
+      if (doc === null) {
+        return { content: "Invalid diff document selection", readOnly: true };
+      }
+      const runtime = this.readRuntimeManagedDoc(agent, doc);
+      if (!runtime.ok) {
+        return {
+          content: `Cannot compute diff for ${doc}:\n${runtime.error}`,
+          readOnly: true,
+        };
+      }
+      const templatePath = this.templatePathForDoc(doc);
+      const base = templatePath !== null && existsSync(templatePath)
+        ? this.safeRead(templatePath)
+        : this.safeRead(join(agent.dir, doc));
+      const diff = this.buildUnifiedDiff(base, runtime.content, `base/${doc}`, `runtime/${doc}`);
+      return { content: diff, readOnly: true };
+    }
+
     if (this.currentView !== "tools") {
       return { content: this.safeRead(filePath), readOnly: false };
     }
@@ -2412,6 +2495,155 @@ class AgentManagerTui {
       }
     }
     return "No description provided.";
+  }
+
+  private displayFileLabel(filePath: string): string {
+    const agent = this.getSelectedAgent();
+    if (this.isVirtualRuntimeDocPath(filePath)) {
+      const doc = this.virtualDocName(filePath) ?? "unknown";
+      return `runtime/${doc}`;
+    }
+    if (this.isVirtualDiffPath(filePath)) {
+      const doc = this.virtualDocName(filePath) ?? "unknown";
+      return `diff/${doc}`;
+    }
+    if (agent !== null) {
+      return relative(agent.dir, filePath);
+    }
+    return filePath;
+  }
+
+  private isVirtualDocPath(filePath: string): boolean {
+    return this.isVirtualRuntimeDocPath(filePath) || this.isVirtualDiffPath(filePath);
+  }
+
+  private isVirtualRuntimeDocPath(filePath: string): boolean {
+    return filePath.startsWith(VIRTUAL_RUNTIME_PREFIX);
+  }
+
+  private isVirtualDiffPath(filePath: string): boolean {
+    return filePath.startsWith(VIRTUAL_DIFF_PREFIX);
+  }
+
+  private virtualDocName(filePath: string): string | null {
+    const raw = filePath.startsWith(VIRTUAL_RUNTIME_PREFIX)
+      ? filePath.slice(VIRTUAL_RUNTIME_PREFIX.length)
+      : filePath.startsWith(VIRTUAL_DIFF_PREFIX)
+        ? filePath.slice(VIRTUAL_DIFF_PREFIX.length)
+        : "";
+    return MANAGED_DOCS.includes(raw) ? raw : null;
+  }
+
+  private readRuntimeManagedDoc(agent: AgentInfo, doc: string):
+    | { ok: true; content: string }
+    | { ok: false; error: string } {
+    if (agent.status !== "running") {
+      return { ok: false, error: `agent ${agent.name} is not running` };
+    }
+    const out = spawnSync(
+      "docker",
+      [
+        "compose",
+        "-f",
+        "docker-compose.agents.yml",
+        "--profile",
+        agent.name,
+        "exec",
+        "-T",
+        agent.name,
+        "zeroclaw",
+        "docs",
+        "read",
+        doc,
+      ],
+      {
+        cwd: ROOT_DIR,
+        encoding: "utf-8",
+      },
+    );
+    if (out.status !== 0) {
+      const err = `${out.stderr ?? ""}${out.stdout ?? ""}`.trim();
+      return { ok: false, error: err.length > 0 ? err : "unknown error" };
+    }
+    return { ok: true, content: out.stdout ?? "" };
+  }
+
+  private templatePathForDoc(doc: string): string | null {
+    const template = join(AGENTS_DIR, "templates", `${doc}.template`);
+    return existsSync(template) ? template : null;
+  }
+
+  private getRuntimeManagedDocsSummary(agent: AgentInfo): { total: number; available: number; changed: number } {
+    const cache = this.runtimeSummaryCache.get(agent.name);
+    const now = Date.now();
+    if (cache !== undefined && now - cache.at < 10000) {
+      return cache.value;
+    }
+
+    if (agent.status !== "running") {
+      const value = { total: MANAGED_DOCS.length, available: 0, changed: 0 };
+      this.runtimeSummaryCache.set(agent.name, { at: now, value });
+      return value;
+    }
+
+    let available = 0;
+    let changed = 0;
+    for (const doc of MANAGED_DOCS) {
+      const runtime = this.readRuntimeManagedDoc(agent, doc);
+      if (!runtime.ok) {
+        continue;
+      }
+      available += 1;
+      const templatePath = this.templatePathForDoc(doc);
+      const base = templatePath !== null && existsSync(templatePath)
+        ? this.safeRead(templatePath)
+        : this.safeRead(join(agent.dir, doc));
+      if (this.normalizeForDiff(base) !== this.normalizeForDiff(runtime.content)) {
+        changed += 1;
+      }
+    }
+    const value = { total: MANAGED_DOCS.length, available, changed };
+    this.runtimeSummaryCache.set(agent.name, { at: now, value });
+    return value;
+  }
+
+  private normalizeForDiff(text: string): string {
+    return text.replace(/\r\n/g, "\n").trimEnd();
+  }
+
+  private buildUnifiedDiff(base: string, current: string, baseLabel: string, currentLabel: string): string {
+    const a = this.normalizeForDiff(base).split("\n");
+    const b = this.normalizeForDiff(current).split("\n");
+    const max = Math.max(a.length, b.length);
+    const lines: string[] = [];
+    lines.push(`--- ${baseLabel}`);
+    lines.push(`+++ ${currentLabel}`);
+    lines.push("@@ preview @@");
+
+    let changes = 0;
+    for (let i = 0; i < max; i++) {
+      const left = a[i];
+      const right = b[i];
+      if (left === right) {
+        if (left !== undefined) {
+          lines.push(` ${left}`);
+        }
+        continue;
+      }
+      changes += 1;
+      if (left !== undefined) {
+        lines.push(`-${left}`);
+      }
+      if (right !== undefined) {
+        lines.push(`+${right}`);
+      }
+    }
+
+    if (changes === 0) {
+      lines.push("(no differences)");
+    }
+
+    return `${lines.join("\n")}\n`;
   }
 }
 
