@@ -4,13 +4,13 @@
 #   - Each agent has its own subdirectory under .agents/ (e.g., .agents/handy/)
 #   - Agent config: .agents/<agent>/.env (environment variables)
 #   - Agent identity: .agents/<agent>/*.md files
-#   - Agent tools: .agents/<agent>/tools/ (optional, mounted to /usr/local/bin/agent-tools)
+#   - Agent tools manifest: .agents/<agent>/tools.toml (resolved at build time)
 #
-# Per-Agent Tool Customization (no custom Dockerfile needed!):
-#   All agents share the same base image, but each can have different tools:
+# Per-Agent Tool Customization (immutable per-image):
+#   Each agent builds from the same Dockerfile with AGENT_NAME set.
 #
-#   1. Add custom tools to .agents/<agent>/tools/
-#      These are automatically mounted and available as: agent-tools/<tool-name>
+#   1. Declare custom tools in .agents/<agent>/tools.toml
+#      Run ./scripts/agent.sh start <agent> to resolve and bake them into image
 #
 #   2. Install APT packages via environment:
 #      AGENT_APT_PACKAGES="kubectl helm awscli" in .agents/<agent>/.env
@@ -20,18 +20,15 @@
 #      AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript ts-node" in .agents/<agent>/.env
 #      (installed at container startup, cached on restart)
 #
-#   4. Download remote tools via environment:
-#      AGENT_TOOLS="https://example.com/my-tool" in .agents/<agent>/.env
-#
 #   Example .env for a DevOps agent:
 #     AGENT_APT_PACKAGES="kubectl helm jq"
 #     AGENT_NPM_PACKAGES="@anthropic-ai/sdk"
 #     AGENT_CONFIG_DIR=/agent-config
 #
-#   Why this approach? No need to maintain separate Dockerfiles for each agent!
-#   - Single base image = easier updates
-#   - Per-agent packages = flexibility
-#   - Cached installations = fast restarts
+#   Why this approach?
+#   - Agent images are immutable and portable to remote hosts
+#   - Only explicitly installed tools are present per agent image
+#   - No runtime dependency on mounted tool directories
 #
 # Usage:
 #   docker compose -f docker-compose.agents.yml --profile handy up -d
@@ -50,6 +47,8 @@ x-agent-base: &agent-base
   build:
     context: .
     target: dev
+    args:
+      AGENT_NAME: _default
   restart: unless-stopped
   devices:
     - /dev/net/tun:/dev/net/tun
@@ -81,7 +80,7 @@ services:
   #   - profile name (e.g., profiles: [myagent])
   #   - config directory: ./.agents/myagent:/agent-config:ro
   #   - env file: .agents/myagent/.env
-  #   - tools directory (optional): ./.agents/myagent/tools:/usr/local/bin/agent-tools
+  #   - build arg AGENT_NAME: myagent
   #
   # For custom images per agent, replace <<: *agent-base with:
   #   image: your-custom-image:tag
@@ -93,6 +92,11 @@ services:
   
   handy:
     <<: *agent-base
+    build:
+      context: .
+      target: dev
+      args:
+        AGENT_NAME: handy
     profiles: [handy]
     env_file:
       - .agents/.shared.env
@@ -109,15 +113,15 @@ services:
         source: ./.agents/handy
         target: /agent-config
         read_only: true
-      # Optional: mount agent-specific tools/scripts
-      - type: bind
-        source: ./.agents/handy/tools
-        target: /usr/local/bin/agent-tools
-        read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
   gordon:
     <<: *agent-base
+    build:
+      context: .
+      target: dev
+      args:
+        AGENT_NAME: gordon
     profiles: [gordon]
     env_file:
       - .agents/.shared.env
@@ -134,15 +138,15 @@ services:
         source: ./.agents/gordon
         target: /agent-config
         read_only: true
-      # Optional: mount agent-specific tools/scripts
-      - type: bind
-        source: ./.agents/gordon/tools
-        target: /usr/local/bin/agent-tools
-        read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
   zoe:
     <<: *agent-base
+    build:
+      context: .
+      target: dev
+      args:
+        AGENT_NAME: zoe
     profiles: [zoe]
     env_file:
       - .agents/.shared.env
@@ -158,11 +162,6 @@ services:
       - type: bind
         source: ./.agents/zoe
         target: /agent-config
-        read_only: true
-      # Optional: mount agent-specific tools/scripts
-      - type: bind
-        source: ./.agents/zoe/tools
-        target: /usr/local/bin/agent-tools
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 

@@ -92,6 +92,12 @@ RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 COPY agent-setup.sh /usr/local/bin/agent-setup.sh
 RUN chmod +x /usr/local/bin/agent-setup.sh
 
+# Copy agent-specific resolved tools into image at build time.
+# These files are generated from .agents/<agent>/tools.toml by scripts/resolve-agent-tools.sh.
+RUN mkdir -p /usr/local/bin/agent-tools
+COPY --from=builder /app/.agents/${AGENT_NAME}/.build-tools/ /usr/local/bin/agent-tools/
+RUN find /usr/local/bin/agent-tools -maxdepth 1 -type f ! -name ".*.tool" -exec chmod +x {} \; || true
+
 # Add agent-tools to PATH globally
 ENV PATH="/usr/local/bin/agent-tools:${PATH}"
 

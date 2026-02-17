@@ -1,0 +1,10 @@
+# Tool declarations for gordon image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh gordon
+
+# [[tool]]
+# name = "example-cli"
+# source = "path"
+# path = ".agents/gordon/tools/example-cli"
+# binary = "example-cli"
+# description = "Example CLI description"
+# sha256 = ""
