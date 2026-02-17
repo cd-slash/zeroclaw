@@ -1158,12 +1158,11 @@ async fn main() -> Result<()> {
         }
 
         Commands::Docs { docs_command } => {
-            use memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+            use memory::managed_docs::normalize_doc_id;
 
-            let mut store = ManagedDocStore::open(&config.workspace_dir)?;
             match docs_command {
                 DocsCommands::List => {
-                    let docs = store.list_doc_ids()?;
+                    let docs = memory::docsd_client::list_docs(&config.workspace_dir)?;
                     if docs.is_empty() {
                         println!("No managed documents initialized.");
                     } else {
@@ -1177,7 +1176,7 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    match store.read_doc(&doc_id)? {
+                    match memory::docsd_client::read_doc(&config.workspace_dir, &doc_id)? {
                         Some(content) => {
                             print!("{content}");
                             Ok(())
@@ -1195,7 +1194,13 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    store.append_block(&doc_id, section.as_deref(), &content, "cli:docs_append")?;
+                    memory::docsd_client::append_doc(
+                        &config.workspace_dir,
+                        &doc_id,
+                        section.as_deref(),
+                        &content,
+                        "cli:docs_append",
+                    )?;
                     println!("Appended content to {doc_id}");
                     Ok(())
                 }
@@ -1207,7 +1212,8 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    store.replace_section(
+                    memory::docsd_client::replace_doc_section(
+                        &config.workspace_dir,
                         &doc_id,
                         &section,
                         &content,
@@ -1217,7 +1223,7 @@ async fn main() -> Result<()> {
                     Ok(())
                 }
                 DocsCommands::Materialize => {
-                    let count = store.materialize_all_docs()?;
+                    let count = memory::docsd_client::materialize_docs(&config.workspace_dir)?;
                     println!("Materialized {count} managed docs");
                     Ok(())
                 }
