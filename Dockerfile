@@ -53,6 +53,9 @@ default_temperature = 0.7
 port = 42617
 host = "[::]"
 allow_public_bind = true
+
+[tunnel]
+provider = "none"
 EOF
 
 # ── Stage 2: Development Runtime (Debian) ────────────────────
@@ -67,9 +70,23 @@ RUN apt-get update && apt-get install -y \
 COPY --from=builder /zeroclaw-data /zeroclaw-data
 COPY --from=builder /app/zeroclaw /usr/local/bin/zeroclaw
 
+# Create zeroclaw user for running zeroclaw and Tailscale SSH access
+# Using UID 1000 (standard first user) instead of reusing nobody (65534)
+RUN useradd -m -u 1000 -s /bin/bash -d /zeroclaw-data zeroclaw && \
+    chown -R zeroclaw:zeroclaw /zeroclaw-data /var/lib/tailscale /var/run/tailscale
+
 # Overwrite minimal config with DEV template (Ollama defaults)
 COPY dev/config.template.toml /zeroclaw-data/.zeroclaw/config.toml
-RUN chown 65534:65534 /zeroclaw-data/.zeroclaw/config.toml
+RUN chown zeroclaw:zeroclaw /zeroclaw-data/.zeroclaw/config.toml
+
+# Copy entrypoint script for Tailscale authentication
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Copy Litestream configuration and start script
+COPY .agents/litestream.template.yml /etc/litestream/litestream.yml
+COPY start-agent-with-litestream.sh /usr/local/bin/start-agent-with-litestream.sh
+RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 
 # Environment setup
 # Use consistent workspace path
@@ -84,8 +101,8 @@ ENV ZEROCLAW_GATEWAY_PORT=42617
 # It is set in config.toml as the Ollama URL.
 
 WORKDIR /zeroclaw-data
-USER 65534:65534
-EXPOSE 42617
+# Run as root so entrypoint can start tailscaled, then drop to zeroclaw user
+EXPOSE 3000
 ENTRYPOINT ["zeroclaw"]
 CMD ["gateway"]
 
