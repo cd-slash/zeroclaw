@@ -1,0 +1,10 @@
+# Tool declarations for handy image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh handy
+
+# [[tool]]
+# name = "example-cli"
+# source = "path"
+# path = ".agents/handy/tools/example-cli"
+# binary = "example-cli"
+# description = "Example CLI description"
+# sha256 = ""

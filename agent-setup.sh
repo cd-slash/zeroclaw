@@ -6,7 +6,7 @@
 # It reads configuration from environment variables and installs:
 #   - APT packages (system tools)
 #   - NPM packages (global Node.js tools)
-#   - Custom tools from /agent-config/tools/
+#   - Tool availability check for baked-in /usr/local/bin/agent-tools/
 #
 # Usage: Runs automatically via entrypoint before starting the agent
 #
@@ -14,7 +14,7 @@
 set -e
 
 AGENT_CONFIG_DIR="${AGENT_CONFIG_DIR:-/agent-config}"
-TOOLS_DIR="${AGENT_CONFIG_DIR}/tools"
+TOOLS_DIR="/usr/local/bin/agent-tools"
 SETUP_MARKER="/tmp/.zeroclaw-agent-setup-done"
 
 log() {
@@ -101,26 +101,26 @@ install_npm_packages() {
     log "NPM package installation complete"
 }
 
-# Setup custom tools from agent directory
+# Verify custom tools baked into image
 setup_custom_tools() {
     if [[ ! -d "$TOOLS_DIR" ]]; then
-        log "No custom tools directory found at $TOOLS_DIR"
+        log "No agent tools directory found at $TOOLS_DIR"
         return 0
     fi
     
     local tools_count
-    tools_count=$(find "$TOOLS_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l)
+    tools_count=$(find "$TOOLS_DIR" -maxdepth 1 -type f ! -name ".*.tool" 2>/dev/null | wc -l)
     
     if [[ "$tools_count" -eq 0 ]]; then
-        log "Custom tools directory is empty"
+        log "No baked custom tools found"
         return 0
     fi
+
+    log "Detected $tools_count baked custom tool(s) in $TOOLS_DIR"
     
-    log "Setting up $tools_count custom tool(s) from $TOOLS_DIR"
-    
-    # Ensure tools are executable
+    # Ensure tools are executable and log metadata
     for tool in "$TOOLS_DIR"/*; do
-        if [[ -f "$tool" ]]; then
+        if [[ -f "$tool" ]] && [[ "$tool" != *.tool ]]; then
             local tool_name
             tool_name=$(basename "$tool")
             
@@ -130,13 +130,13 @@ setup_custom_tools() {
                 chmod +x "$tool" 2>/dev/null || true
             fi
             
-            # Log tool type
-            if file "$tool" 2>/dev/null | grep -q "text"; then
-                local shebang
-                shebang=$(head -1 "$tool")
-                log "  Tool: $tool_name ($shebang)"
+            local tool_meta="${TOOLS_DIR}/.${tool_name}.tool"
+            if [[ -f "$tool_meta" ]]; then
+                local desc
+                desc=$(grep '^description=' "$tool_meta" | sed 's/^description=//')
+                log "  Tool: $tool_name (${desc:-no description})"
             else
-                log "  Tool: $tool_name (binary)"
+                log "  Tool: $tool_name"
             fi
         fi
     done
@@ -150,39 +150,6 @@ setup_custom_tools() {
     log "Custom tools are available via: agent-tools/<tool-name>"
 }
 
-# Install tools from AGENT_TOOLS env var (simple URLs or package names)
-install_remote_tools() {
-    local tools="${AGENT_TOOLS:-}"
-    
-    if [[ -z "$tools" ]]; then
-        log "No remote tools to install (AGENT_TOOLS not set)"
-        return 0
-    fi
-    
-    log "Installing remote tools: $tools"
-    
-    # Create tools directory if needed
-    mkdir -p /usr/local/bin/agent-tools
-    
-    for tool in $tools; do
-        # Check if it's a URL
-        if [[ "$tool" =~ ^https?:// ]]; then
-            local tool_name
-            tool_name=$(basename "$tool")
-            
-            log "Downloading: $tool_name from $tool"
-            if curl -fsSL "$tool" -o "/usr/local/bin/agent-tools/$tool_name" 2>/dev/null; then
-                chmod +x "/usr/local/bin/agent-tools/$tool_name"
-                log "Installed: $tool_name"
-            else
-                log "WARNING: Failed to download $tool"
-            fi
-        else
-            log "WARNING: Unknown tool format: $tool (expected URL)"
-        fi
-    done
-}
-
 # Main setup
 main() {
     log "======================================="
@@ -193,7 +160,6 @@ main() {
     install_apt_packages
     install_npm_packages
     setup_custom_tools
-    install_remote_tools
     
     # Mark setup as complete
     touch "$SETUP_MARKER"

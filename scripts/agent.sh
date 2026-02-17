@@ -30,6 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 AGENTS_DIR="$PROJECT_DIR/.agents"
 COMPOSE_FILE="$PROJECT_DIR/docker-compose.agents.yml"
+RESOLVE_TOOLS_SCRIPT="$SCRIPT_DIR/resolve-agent-tools.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -151,9 +152,13 @@ start_agent() {
         log_info "Gateway will be available at: http://localhost:${port}"
     fi
     
-    # Use the profile-based service
-    # Docker Compose automatically isolates volumes and names containers
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d
+    if [[ -x "$RESOLVE_TOOLS_SCRIPT" ]]; then
+        log_info "Resolving toolset from .agents/${agent}/tools.toml"
+        "$RESOLVE_TOOLS_SCRIPT" "$agent"
+    fi
+
+    # Use the profile-based service and rebuild image so tool changes are included.
+    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d --build
     
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' started successfully"
@@ -245,7 +250,32 @@ EOF
     
     # Create agent subdirectories
     mkdir -p "$agent_dir/skills"
-    mkdir -p "$agent_dir/tools"
+    mkdir -p "$agent_dir/.build-tools"
+    touch "$agent_dir/.build-tools/.gitkeep"
+
+    cat > "${agent_dir}/tools.toml" << EOF
+# Tool declarations for ${agent} image builds.
+# Each [[tool]] entry is copied into /usr/local/bin/agent-tools at build time.
+# Supported sources:
+#   - source = "path" with local file path (absolute or project-relative)
+#   - source = "url" with remote binary URL
+
+# [[tool]]
+# name = "example-cli"
+# source = "path"
+# path = ".agents/${agent}/tools/example-cli"
+# binary = "example-cli"
+# description = "Example CLI description"
+# sha256 = ""
+
+# [[tool]]
+# name = "remote-example"
+# source = "url"
+# url = "https://example.com/releases/example-cli-linux-amd64"
+# binary = "example-cli"
+# description = "Remote example binary"
+# sha256 = ""
+EOF
     
     # Copy template files
     local templates_dir="$AGENTS_DIR/templates"
@@ -269,7 +299,7 @@ EOF
     log_info "  Config file: $env_file"
     log_info "  Agent directory: $agent_dir/"
     log_info "  - Identity files: $agent_dir/*.md"
-    log_info "  - Custom tools: $agent_dir/tools/ (mounted to /usr/local/bin/agent-tools)"
+    log_info "  - Tool manifest: $agent_dir/tools.toml"
     log_info ""
     log_info "To start this agent:"
     log_info "  ./scripts/agent.sh start ${agent}"
@@ -286,7 +316,7 @@ EOF
     log_info ""
     log_info "Next steps:"
     log_info "  1. Review and customize identity files in $agent_dir/"
-    log_info "  2. Add custom tools to $agent_dir/tools/ (optional)"
+    log_info "  2. Add tool entries to $agent_dir/tools.toml (optional)"
     log_info "  3. Start with: ./scripts/agent.sh start ${agent}"
 }
 
@@ -422,7 +452,7 @@ Examples:
 Configuration:
   Agent configs are in: .agents/<agent_name>/.env
   Shared config is in:  .agents/.shared.env
-  Agent directory:      .agents/<agent_name>/ (contains identity files, tools/)
+  Agent directory:      .agents/<agent_name>/ (contains identity files, tools.toml)
   Compose file:         docker-compose.agents.yml
 
 For more information, see: docs/multi-agent-setup.md

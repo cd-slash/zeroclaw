@@ -33,7 +33,7 @@ This directory contains environment configurations and identity templates for in
 │   ├── TOOLS.md            # Tool notes
 │   ├── MEMORY.md           # Long-term memory template
 │   ├── skills/             # Agent-specific skills
-│   └── tools/              # Custom CLI tools (mounted to container)
+│   └── tools.toml          # Tool declarations for image build
 ├── gordon/                 # Code agent directory
 │   ├── .env
 │   └── ...
@@ -69,7 +69,7 @@ Settings are loaded in this order (later overrides earlier):
 # - .agents/mybot/.env (hidden env file)
 # - .agents/mybot/*.md (identity templates)
 # - .agents/mybot/skills/ (skills directory)
-# - .agents/mybot/tools/ (custom tools directory)
+# - .agents/mybot/tools.toml (tool declarations)
 ```
 
 ### Method 2: Manual Setup
@@ -90,7 +90,7 @@ Settings are loaded in this order (later overrides earlier):
    - `TOOLS.md` - Tool-specific notes
    - `AGENTS.md` - Operational guidelines
 
-4. (Optional) Add custom tools to `.agents/mybot/tools/`
+4. (Optional) Add tool entries to `.agents/mybot/tools.toml`
 
 5. Add the service to `docker-compose.agents.yml`
 
@@ -150,33 +150,35 @@ Agent-specific capabilities:
 - Defines custom tools and behaviors
 - Can include shell scripts, HTTP calls, etc.
 
-### tools/
-Custom CLI tools available to this agent:
-- Executables/scripts mounted to `/usr/local/bin/agent-tools` in container
-- Accessible via shell tool as `agent-tools/<script>`
-- Use for agent-specific CLIs (e.g., custom `kubectl` wrappers, database clients)
-- Scripts here are isolated to this agent only
+### tools.toml
+Custom CLI tool declarations for this agent image:
+- Each `[[tool]]` entry resolves one binary during build
+- Resolved binaries are copied to `/usr/local/bin/agent-tools`
+- Supports local paths and remote URLs
+- Supports optional `sha256` verification per tool
 
 ## Per-Agent Tool Customization
 
 Each agent can have different CLI tools without needing separate Dockerfiles:
 
-### Method 1: Custom Tools Directory (Recommended for Scripts/Binaries)
+### Method 1: Tool Manifest (Recommended)
 
-Add executable files to `.agents/<agent>/tools/`:
+Declare tools in `.agents/<agent>/tools.toml`:
 
+```toml
+[[tool]]
+name = "my-kubectl-wrapper"
+source = "path"
+path = ".agents/handy/tools/my-kubectl-wrapper"
+binary = "my-kubectl-wrapper"
+description = "Custom kubectl helper"
+sha256 = ""
 ```
-.agents/handy/tools/
-├── my-kubectl-wrapper    # Custom kubectl wrapper script
-├── db-backup             # Database backup script
-└── my-binary-tool        # Pre-compiled binary
-```
 
-These are automatically:
-- Mounted to `/usr/local/bin/agent-tools/` in the container
-- Made executable (chmod +x applied automatically)
-- Available via `agent-tools/<tool-name>` in shell commands
-- Added to PATH as `/usr/local/bin/agent-tools`
+On `../scripts/agent.sh start <agent>` these are automatically:
+- Resolved into `.agents/<agent>/.build-tools/`
+- Copied into the Docker image at `/usr/local/bin/agent-tools/`
+- Made executable and available as `agent-tools/<tool-name>`
 
 ### Method 2: Dynamic Package Installation (No Dockerfile Needed!)
 
@@ -189,8 +191,7 @@ AGENT_APT_PACKAGES="kubectl helm jq awscli"
 # Install NPM packages (Node.js tools)
 AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript ts-node"
 
-# Download remote tools from URLs
-AGENT_TOOLS="https://example.com/custom-tool"
+# Tool declarations are in .agents/<agent>/tools.toml
 ```
 
 **How it works:**
