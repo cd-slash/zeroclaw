@@ -1,0 +1,70 @@
+# Litestream Configuration for ZeroClaw
+#
+# This file configures continuous streaming replication of SQLite databases
+# to MinIO (or S3-compatible storage).
+#
+# Docs: https://litestream.io/reference/config/
+
+# Access key ID for S3/MinIO (read from environment)
+access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+
+# Secret access key for S3/MinIO (read from environment)
+secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+
+# Global settings
+dbs:
+  # Main SQLite memory database
+  - path: /zeroclaw-data/.zeroclaw/memory.db
+    
+    # Checkpoint interval (increments of WAL)
+    # Lower = more frequent checkpoints, faster restore, more S3 operations
+    # Higher = less frequent checkpoints, slower restore, fewer S3 operations
+    checkpoint-interval: 1m
+    
+    # Min/max snapshot age (retention policy)
+    # Keeps snapshots for 30 days
+    min-snapshot-age: 0s
+    max-snapshot-age: 720h  # 30 days
+    
+    # Snapshot interval (how often to create full snapshots)
+    snapshot-interval: 6h
+    
+    # Replicas - where to stream the WAL
+    replicas:
+      # Primary replica to MinIO
+      - type: s3
+        
+        # Bucket name
+        bucket: ${LITESTREAM_BUCKET:-zeroclaw-backups}
+        
+        # Path prefix in bucket (unique per agent for isolation)
+        # All agents share the 'zeroclaw-backups' bucket but have separate paths:
+        #   - litestream/handy/memory.db
+        #   - litestream/gordon/memory.db
+        #   - litestream/zoe/memory.db
+        path: litestream/${AGENT_NAME:-agent}/memory.db
+        
+        # Endpoint (for MinIO via Tailscale serve)
+        # Format: https://minio.your-hostname.your-tailnet.ts.net:9000
+        # Replace with your actual Tailscale hostname
+        endpoint: ${LITESTREAM_ENDPOINT:-https://minio.your-tailnet.ts.net:9000}
+        
+        # Region (optional, MinIO doesn't need this)
+        region: ${LITESTREAM_REGION:-us-east-1}
+        
+        # Force path style (required for MinIO)
+        force-path-style: true
+        
+        # Sync interval (how often to sync WAL)
+        sync-interval: 10s
+        
+        # Retention - how long to keep WAL segments
+        retention: 720h  # 30 days
+        
+        # Validation interval
+        validation-interval: 6h
+        
+        # Optional: Add tags to replica files
+        tags:
+          agent: ${AGENT_NAME:-agent}
+          type: memory-db

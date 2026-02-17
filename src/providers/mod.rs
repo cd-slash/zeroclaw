@@ -167,7 +167,6 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
             return Some(trimmed_override.to_owned());
         }
     }
-
     let provider_env_candidates: Vec<&str> = match name {
         "anthropic" => vec!["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"],
         "openrouter" => vec!["OPENROUTER_API_KEY"],
@@ -228,7 +227,8 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
         }
     }
 
-    None
+    // Finally, fall back to the explicit api_key from config.toml
+    api_key.map(str::trim).filter(|k| !k.is_empty()).map(|k| k.to_string())
 }
 
 fn parse_custom_provider_url(
@@ -319,6 +319,12 @@ pub fn create_provider_with_url(
         name if minimax_base_url(name).is_some() => Ok(Box::new(OpenAiCompatibleProvider::new(
             "MiniMax",
             minimax_base_url(name).expect("checked in guard"),
+            key,
+            AuthStyle::Bearer,
+        ))),
+        "minimax-intl" => Ok(Box::new(OpenAiCompatibleProvider::new(
+            "MiniMax-International",
+            "https://api.minimax.io/v1",
             key,
             AuthStyle::Bearer,
         ))),

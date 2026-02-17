@@ -1,0 +1,122 @@
+# SKILL.md — Example Skill Template
+
+This is a template for creating a new skill. Skills live in the `skills/` directory
+and define custom capabilities for your agent.
+
+## Skill Structure
+
+Create a new directory under `skills/` with your skill name:
+
+```
+skills/
+└── my-skill/
+    ├── SKILL.md        # This file - skill documentation
+    ├── SKILL.toml      # Optional - structured skill manifest
+    └── scripts/        # Optional - supporting scripts
+        └── tool.sh
+```
+
+## SKILL.md Format
+
+```markdown
+# My Skill
+
+**Description:** What this skill does
+**Version:** 1.0.0
+**Author:** Your Name
+**Tags:** automation, deployment
+
+## Tools
+
+### deploy
+**Kind:** shell
+**Description:** Deploy the application
+**Command:** ./scripts/deploy.sh
+
+### check-status
+**Kind:** http
+**Description:** Check service health
+**Command:** https://api.example.com/health
+
+## Prompts
+
+Use these prompts when:
+- The user asks about deployment
+- The user mentions production issues
+```
+
+## SKILL.toml Format (Alternative)
+
+```toml
+[skill]
+name = "my-skill"
+description = "What this skill does"
+version = "1.0.0"
+author = "Your Name"
+tags = ["automation", "deployment"]
+
+[[tools]]
+name = "deploy"
+description = "Deploy the application"
+kind = "shell"
+command = "./scripts/deploy.sh"
+
+[[tools]]
+name = "check-status"
+description = "Check service health"
+kind = "http"
+command = "https://api.example.com/health"
+
+[[prompts]]
+text = """Use these prompts when:
+- The user asks about deployment
+- The user mentions production issues
+"""
+```
+
+## Tool Kinds
+
+- **shell** — Execute a shell command
+- **http** — Make an HTTP request
+- **script** — Run a script file
+
+## Best Practices
+
+1. Keep skills focused on one domain
+2. Document all tools clearly
+3. Include example usage in prompts
+4. Test scripts before committing
+5. Use relative paths from the skill directory
+
+## Example: DevOps Skill
+
+```markdown
+# DevOps Automation
+
+**Description:** Common DevOps tasks and deployments
+**Version:** 1.0.0
+**Tags:** devops, deployment, docker
+
+## Tools
+
+### docker-build
+**Kind:** shell
+**Description:** Build Docker image
+**Command:** docker build -t {{image}} .
+Args:
+  - image: Image name and tag
+
+### k8s-apply
+**Kind:** shell
+**Description:** Apply Kubernetes manifests
+**Command:** kubectl apply -f k8s/
+
+## Prompts
+
+When the user asks about deployment:
+1. Check current git status
+2. Run tests if available
+3. Build the Docker image
+4. Apply Kubernetes manifests
+5. Verify deployment status
+```
