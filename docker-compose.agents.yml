@@ -12,18 +12,13 @@
 #   1. Declare custom tools in .agents/<agent>/tools.toml
 #      Run ./scripts/agent.sh start <agent> to resolve and bake them into image
 #
-#   2. Install APT packages via environment:
-#      AGENT_APT_PACKAGES="kubectl helm awscli" in .agents/<agent>/.env
-#      (installed at container startup, cached on restart)
+#   2. Install APT packages in tools.toml:
+#      [apt]
+#      packages = ["kubectl", "helm", "awscli"]
 #
-#   3. Install NPM packages via environment:
-#      AGENT_NPM_PACKAGES="@anthropic-ai/sdk typescript ts-node" in .agents/<agent>/.env
-#      (installed at container startup, cached on restart)
-#
-#   Example .env for a DevOps agent:
-#     AGENT_APT_PACKAGES="kubectl helm jq"
-#     AGENT_NPM_PACKAGES="@anthropic-ai/sdk"
-#     AGENT_CONFIG_DIR=/agent-config
+#   3. Install npm CLI tools via Bun in tools.toml:
+#      [bun]
+#      packages = ["typescript", "tsx", "@anthropic-ai/sdk"]
 #
 #   Why this approach?
 #   - Agent images are immutable and portable to remote hosts
