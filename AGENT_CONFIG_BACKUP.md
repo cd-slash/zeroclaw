@@ -79,7 +79,7 @@ This outputs a **complete, ready-to-use service template** including the config 
     container_name: zeroclaw-mynewagent
     hostname: mynewagent
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/.mynewagent.env
     environment:
       - AGENT_NAME=mynewagent
@@ -111,7 +111,7 @@ MinIO Bucket: zeroclaw-backups
     └── ...
 ```
 
-Just set `MINIO_BUCKET=zeroclaw-backups` in `.agents/shared.env` and all agents use it!
+Just set `MINIO_BUCKET=zeroclaw-backups` in `.agents/.shared.env` and all agents use it!
 
 ## What's NOT Backed Up (by design)
 

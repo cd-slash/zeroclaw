@@ -68,7 +68,7 @@ preview_migration() {
             agent_name=$(basename "$env_file" .env)
             agent_name="${agent_name#.}"
             
-            # Skip shared.env
+            # Skip .shared.env
             if [[ "$agent_name" == "shared" ]]; then
                 continue
             fi
@@ -185,7 +185,7 @@ run_migration() {
             agent_name=$(basename "$env_file" .env)
             agent_name="${agent_name#.}"
             
-            # Skip shared.env
+            # Skip .shared.env
             if [[ "$agent_name" == "shared" ]]; then
                 continue
             fi

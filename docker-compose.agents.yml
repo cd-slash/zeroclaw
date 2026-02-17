@@ -95,7 +95,7 @@ services:
     <<: *agent-base
     profiles: [handy]
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/handy/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
@@ -120,7 +120,7 @@ services:
     <<: *agent-base
     profiles: [gordon]
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/gordon/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
@@ -145,7 +145,7 @@ services:
     <<: *agent-base
     profiles: [zoe]
     env_file:
-      - .agents/shared.env
+      - .agents/.shared.env
       - .agents/zoe/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000

@@ -33,7 +33,7 @@ This document provides a high-level overview of the ZeroClaw multi-agent contain
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │                    Shared Configuration                                  ││
-│  │  .agents/shared.env (API keys, common settings)                         ││
+│  │  .agents/.shared.env (API keys, common settings)                        ││
 │  │  .agents/.minio.env (MinIO backup credentials - optional)               ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                                                              │
@@ -175,7 +175,7 @@ source .agents/.minio.env
 
 ```bash
 # 1. Configure shared settings
-nano .agents/shared.env
+nano .agents/.shared.env
 # Add: API_KEY=your-key-here
 
 # 2. Customize handy's identity
@@ -261,7 +261,7 @@ source .agents/.minio.env
 
 1. **Runtime env vars** from docker-compose `environment:`
 2. **.agents/.agent.env** (hidden agent config)
-3. **.agents/shared.env** (shared settings)
+3. **.agents/.shared.env** (shared settings)
 4. **Base image config** (defaults)
 5. **Identity files** (`.agent/*.md` - loaded into prompts)
 
@@ -304,7 +304,7 @@ ZEROCLAW_BROWSER_ENABLED=true
 ```
 zeroclaw/
 ├── .agents/
-│   ├── shared.env              # Shared API keys
+│   ├── .shared.env             # Shared API keys
 │   ├── minio.env.example       # MinIO config template
 │   ├── .handy.env              # ← HIDDEN: handy config
 │   ├── .gordon.env             # ← HIDDEN: gordon config
@@ -349,7 +349,7 @@ zeroclaw/
 
 1. **Configure API key:**
    ```bash
-   nano .agents/shared.env
+   nano .agents/.shared.env
    # Add: API_KEY=sk-your-key-here
    ```
 
