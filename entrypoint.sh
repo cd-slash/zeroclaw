@@ -181,8 +181,7 @@ if [ -n "$TAILSCALE_AUTHKEY" ] && command -v tailscale &> /dev/null; then
     if ! tailscale --socket=/var/run/tailscale/tailscaled.sock status &>/dev/null; then
         echo "[entrypoint] Authenticating with Tailscale..."
         HOSTNAME="${TAILSCALE_HOSTNAME:-${HOSTNAME:-zeroclaw}}"
-        tailscale --socket=/var/run/tailscale/tailscaled.sock up --ssh --authkey="$TAILSCALE_AUTHKEY" --hostname="$HOSTNAME"
-        tailscale --socket=/var/run/tailscale/tailscaled.sock set --operator=zeroclaw 2>/dev/null || true
+        tailscale --socket=/var/run/tailscale/tailscaled.sock up --ssh --operator=zeroclaw --authkey="$TAILSCALE_AUTHKEY" --hostname="$HOSTNAME"
         echo "[entrypoint] Tailscale ready"
     fi
     
