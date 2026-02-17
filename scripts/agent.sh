@@ -8,6 +8,9 @@
 # Commands:
 #   list              List all available agents
 #   start <agent>     Start an agent (e.g., ./agent.sh start handy)
+#   up <agent>        Resolve tools, rebuild image, and start agent
+#   rebuild <agent>   Resolve tools and rebuild image only
+#   resolve <agent>   Resolve tools.toml into .build-tools only
 #   stop <agent>      Stop an agent
 #   restart <agent>   Restart an agent
 #   logs <agent>      Show logs for an agent
@@ -18,6 +21,8 @@
 #
 # Examples:
 #   ./scripts/agent.sh start handy          # Start the handy agent
+#   ./scripts/agent.sh up handy             # Rebuild and start handy
+#   ./scripts/agent.sh rebuild handy        # Rebuild handy image only
 #   ./scripts/agent.sh start gordon         # Start gordon on port 3001
 #   ./scripts/agent.sh start zoe          # Start zoe on port 3002
 #   ./scripts/agent.sh logs handy -f      # Follow handy logs
@@ -63,6 +68,14 @@ check_agent_config() {
         log_error "Agent '$agent' not found. Config missing: $AGENTS_DIR/${agent}/.env"
         log_info "Use './scripts/agent.sh create $agent' to create a new agent"
         exit 1
+    fi
+}
+
+resolve_agent_tools() {
+    local agent="$1"
+    if [[ -x "$RESOLVE_TOOLS_SCRIPT" ]]; then
+        log_info "Resolving toolset from .agents/${agent}/tools.toml"
+        "$RESOLVE_TOOLS_SCRIPT" "$agent"
     fi
 }
 
@@ -152,13 +165,7 @@ start_agent() {
         log_info "Gateway will be available at: http://localhost:${port}"
     fi
     
-    if [[ -x "$RESOLVE_TOOLS_SCRIPT" ]]; then
-        log_info "Resolving toolset from .agents/${agent}/tools.toml"
-        "$RESOLVE_TOOLS_SCRIPT" "$agent"
-    fi
-
-    # Use the profile-based service and rebuild image so tool changes are included.
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d --build
+    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d
     
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' started successfully"
@@ -166,6 +173,44 @@ start_agent() {
         log_info "View logs: ./scripts/agent.sh logs $agent -f"
     else
         log_error "Failed to start agent '$agent'"
+        exit 1
+    fi
+}
+
+up_agent() {
+    local agent="$1"
+    check_agent_config "$agent"
+    local port
+    port=$(get_agent_port "$agent")
+
+    log_info "Rebuilding and starting agent: $agent"
+    if [[ -n "$port" ]]; then
+        log_info "Gateway will be available at: http://localhost:${port}"
+    fi
+
+    resolve_agent_tools "$agent"
+    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d --build
+
+    if [[ $? -eq 0 ]]; then
+        log_success "Agent '$agent' rebuilt and started successfully"
+    else
+        log_error "Failed to rebuild/start agent '$agent'"
+        exit 1
+    fi
+}
+
+rebuild_agent() {
+    local agent="$1"
+    check_agent_config "$agent"
+
+    log_info "Rebuilding agent image: $agent"
+    resolve_agent_tools "$agent"
+    docker compose -f "$COMPOSE_FILE" --profile "$agent" build "$agent"
+
+    if [[ $? -eq 0 ]]; then
+        log_success "Agent '$agent' image rebuilt successfully"
+    else
+        log_error "Failed to rebuild agent '$agent'"
         exit 1
     fi
 }
@@ -380,6 +425,28 @@ main() {
             fi
             start_agent "$2"
             ;;
+        up)
+            if [[ -z "${2:-}" ]]; then
+                log_error "Usage: $0 up <agent_name>"
+                exit 1
+            fi
+            up_agent "$2"
+            ;;
+        rebuild)
+            if [[ -z "${2:-}" ]]; then
+                log_error "Usage: $0 rebuild <agent_name>"
+                exit 1
+            fi
+            rebuild_agent "$2"
+            ;;
+        resolve)
+            if [[ -z "${2:-}" ]]; then
+                log_error "Usage: $0 resolve <agent_name>"
+                exit 1
+            fi
+            check_agent_config "$2"
+            resolve_agent_tools "$2"
+            ;;
         stop)
             if [[ -z "${2:-}" ]]; then
                 log_error "Usage: $0 stop <agent_name>"
@@ -436,6 +503,9 @@ Usage: ./scripts/agent.sh <command> [agent_name] [options]
 Commands:
   list                    List all available agents and their status
   start <agent>           Start an agent (creates container if needed)
+  up <agent>              Resolve tools, rebuild image, and start
+  rebuild <agent>         Resolve tools and rebuild image only
+  resolve <agent>         Resolve tools.toml into .build-tools only
   stop <agent>            Stop an agent
   restart <agent>         Restart an agent
   logs <agent> [-f]       Show logs for an agent (-f to follow)
@@ -453,6 +523,8 @@ Built-in Agents:
 Examples:
   ./scripts/agent.sh list                    # Show all agents
   ./scripts/agent.sh start handy             # Start the handy agent
+  ./scripts/agent.sh up handy                # Rebuild and start handy
+  ./scripts/agent.sh rebuild handy           # Rebuild handy image
   ./scripts/agent.sh logs handy -f           # Follow handy logs
   ./scripts/agent.sh shell handy             # Open shell in handy
   ./scripts/agent.sh create mybot            # Create new agent 'mybot'

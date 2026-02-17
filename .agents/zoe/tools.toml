@@ -7,3 +7,9 @@ source = "path"
 path = ".agents/zoe/tools/pngx"
 binary = "pngx"
 description = "Paperless-ngx command-line client for search, upload, and document automation."
+
+# [apt]
+# packages = ["jq"]
+
+# [bun]
+# packages = ["typescript"]

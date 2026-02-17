@@ -53,6 +53,11 @@ interface ToolCatalogItem {
   sourcePath: string;
 }
 
+interface ToolCatalogModalState {
+  items: ToolCatalogItem[];
+  selectedIndex: number;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
@@ -118,6 +123,7 @@ class AgentManagerTui {
   private logProcess: ChildProcessWithoutNullStreams | null = null;
   private promptState: PromptState | null = null;
   private envModalState: EnvModalState | null = null;
+  private toolCatalogModalState: ToolCatalogModalState | null = null;
   private focusMode: "agents" | "files" | "editor" = "agents";
 
   private renderer!: Awaited<ReturnType<typeof createCliRenderer>>;
@@ -144,6 +150,10 @@ class AgentManagerTui {
   private envModalVars!: TextRenderable;
   private envModalKeyInput!: InputRenderable;
   private envModalValueInput!: InputRenderable;
+  private toolCatalogOverlay!: BoxRenderable;
+  private toolCatalogTitle!: TextRenderable;
+  private toolCatalogList!: TextRenderable;
+  private toolCatalogHint!: TextRenderable;
 
   async start(): Promise<void> {
     this.renderer = await createCliRenderer({
@@ -466,17 +476,78 @@ class AgentManagerTui {
     this.envModalOverlay.add(this.envModalValueInput);
     this.envModalOverlay.add(envModalHint);
 
+    this.toolCatalogOverlay = new BoxRenderable(this.renderer, {
+      position: "absolute",
+      top: "18%",
+      left: "12%",
+      width: "76%",
+      height: "64%",
+      border: true,
+      borderColor: THEME.accent,
+      backgroundColor: THEME.promptBg,
+      zIndex: 102,
+      paddingX: 1,
+      paddingY: 1,
+      flexDirection: "column",
+      visible: false,
+    });
+    this.toolCatalogTitle = new TextRenderable(this.renderer, {
+      content: "Tool Catalog",
+      fg: THEME.text,
+      attributes: 1,
+    });
+    this.toolCatalogList = new TextRenderable(this.renderer, {
+      marginTop: 1,
+      content: "",
+      fg: THEME.text,
+      width: "100%",
+      height: "100%",
+    });
+    this.toolCatalogHint = new TextRenderable(this.renderer, {
+      marginTop: 1,
+      content: "Up/Down select | Enter install | Esc close",
+      fg: THEME.textMuted,
+    });
+    this.toolCatalogOverlay.add(this.toolCatalogTitle);
+    this.toolCatalogOverlay.add(this.toolCatalogList);
+    this.toolCatalogOverlay.add(this.toolCatalogHint);
+
     this.rootLayout.add(header);
     this.rootLayout.add(body);
     this.rootLayout.add(footer);
     this.rootLayout.add(this.promptOverlay);
     this.rootLayout.add(this.envModalOverlay);
+    this.rootLayout.add(this.toolCatalogOverlay);
 
     this.renderer.root.add(this.rootLayout);
   }
 
   private bindKeys(): void {
     this.renderer.keyInput.on("keypress", (key) => {
+      if (this.toolCatalogModalState !== null) {
+        if (key.name === "escape") {
+          this.closeToolCatalogModal();
+          key.preventDefault();
+          return;
+        }
+        if (key.name === "up" || key.name === "k") {
+          this.moveToolCatalogSelection(-1);
+          key.preventDefault();
+          return;
+        }
+        if (key.name === "down" || key.name === "j") {
+          this.moveToolCatalogSelection(1);
+          key.preventDefault();
+          return;
+        }
+        if (key.name === "return" || key.name === "enter") {
+          this.installSelectedToolCatalogItem();
+          key.preventDefault();
+          return;
+        }
+        return;
+      }
+
       if (this.envModalState !== null) {
         if (key.name === "escape") {
           this.closeEnvModal();
@@ -644,6 +715,11 @@ class AgentManagerTui {
         return;
       }
 
+      if (key.shift && key.name === "s") {
+        this.runSelectedAgentCommand("up");
+        key.preventDefault();
+        return;
+      }
       if (key.name === "s") {
         this.runSelectedAgentCommand("start");
         key.preventDefault();
@@ -829,6 +905,7 @@ class AgentManagerTui {
     this.logsText.content = this.logs.length === 0 ? "No logs yet." : this.logs.join("\n");
     this.opsText.content = this.renderOps();
     this.footerText.content = this.renderFooter();
+    this.toolCatalogList.content = this.renderToolCatalogList();
 
     this.dashboardContainer.visible = this.currentView === "dashboard";
     this.dashboardText.visible = this.currentView === "dashboard";
@@ -839,6 +916,7 @@ class AgentManagerTui {
     this.editorContainer.title = this.editorTitle();
     this.promptOverlay.visible = this.promptState !== null;
     this.envModalOverlay.visible = this.envModalState !== null;
+    this.toolCatalogOverlay.visible = this.toolCatalogModalState !== null;
 
     if (
       this.focusMode === "editor" &&
@@ -862,6 +940,10 @@ class AgentManagerTui {
     } else {
       this.envModalKeyInput.blur();
       this.envModalValueInput.blur();
+    }
+
+    if (this.toolCatalogModalState !== null) {
+      this.editor.blur();
     }
 
     this.renderer.requestRender();
@@ -997,6 +1079,24 @@ class AgentManagerTui {
     return lines.join("\n");
   }
 
+  private renderToolCatalogList(): string {
+    if (this.toolCatalogModalState === null) {
+      return "";
+    }
+    const lines: string[] = [];
+    const { items, selectedIndex } = this.toolCatalogModalState;
+    lines.push("Select a tool to add to tools.toml");
+    lines.push("");
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const marker = i === selectedIndex ? ">" : " ";
+      lines.push(`${marker} ${item.name} (${item.binary})`);
+      lines.push(`    ${item.description}`);
+      lines.push(`    source: ${item.sourcePath}`);
+    }
+    return lines.join("\n");
+  }
+
   private renderFooter(): string {
     const envErrors = this.currentView === "env" && this.currentFilePath !== null
       ? this.validateEnv(this.editor.plainText).length
@@ -1011,7 +1111,7 @@ class AgentManagerTui {
     const opsHint = this.currentView === "ops" ? " | ops:b/c/r/u/i/o/v/p/g/y" : "";
     return [
       `Status: ${this.message}${unsavedPart}${readOnlyPart}${envPart}`,
-      `Global: q quit | Tab focus | 1-7 views | a create | Shift+c duplicate | Shift+d safe-remove | s start | t stop | Shift+r restart`,
+      `Global: q quit | Tab focus | 1-7 views | a create | Shift+c duplicate | Shift+d safe-remove | s start | Shift+s rebuild+start | t stop | Shift+r restart`,
       `File: Ctrl+s save | n new | x delete | r refresh/list | ${focusPart}${envModalHint}${skillsHint}${toolsHint}${opsHint}`,
     ].join("\n");
   }
@@ -1632,7 +1732,7 @@ class AgentManagerTui {
     });
   }
 
-  private runSelectedAgentCommand(command: "start" | "stop" | "restart"): void {
+  private runSelectedAgentCommand(command: "start" | "stop" | "restart" | "up"): void {
     const agent = this.getSelectedAgent();
     if (agent === null) {
       return;
@@ -1743,11 +1843,6 @@ class AgentManagerTui {
   }
 
   private promptInstallToolFromCatalog(): void {
-    const agent = this.getSelectedAgent();
-    if (agent === null) {
-      return;
-    }
-
     const catalog = this.discoverToolCatalog();
     if (catalog.length === 0) {
       this.message = "No catalog tools found in ../agent-tools/tools";
@@ -1755,62 +1850,65 @@ class AgentManagerTui {
       return;
     }
 
-    const preview = catalog.slice(0, 8).map((item, idx) => `${idx + 1}:${item.name}`).join("  ");
-    this.openPrompt({
-      title: `Install catalog tool (${preview})`,
-      placeholder: "tool name or index",
-      handler: (value) => {
-        const raw = value.trim();
-        if (raw.length === 0) {
-          this.message = "Catalog install cancelled";
-          this.renderAll();
-          return;
-        }
+    this.toolCatalogModalState = { items: catalog, selectedIndex: 0 };
+    this.toolCatalogTitle.content = "Tool Catalog - select a tool to add";
+    this.renderAll();
+  }
 
-        let item: ToolCatalogItem | undefined;
-        const asIndex = Number.parseInt(raw, 10);
-        if (!Number.isNaN(asIndex) && asIndex >= 1 && asIndex <= catalog.length) {
-          item = catalog[asIndex - 1];
-        } else {
-          item = catalog.find((entry) => entry.name === raw || entry.id === raw || entry.binary === raw);
-        }
+  private closeToolCatalogModal(): void {
+    this.toolCatalogModalState = null;
+    this.renderAll();
+  }
 
-        if (item === undefined) {
-          this.message = `Tool not found in catalog: ${raw}`;
-          this.renderAll();
-          return;
-        }
+  private moveToolCatalogSelection(delta: number): void {
+    if (this.toolCatalogModalState === null) {
+      return;
+    }
+    const max = this.toolCatalogModalState.items.length - 1;
+    const next = Math.max(0, Math.min(max, this.toolCatalogModalState.selectedIndex + delta));
+    this.toolCatalogModalState.selectedIndex = next;
+    this.renderAll();
+  }
 
-        if (!existsSync(item.sourcePath)) {
-          this.message = `Binary missing: ${item.sourcePath}. Build it in ../agent-tools first.`;
-          this.renderAll();
-          return;
-        }
+  private installSelectedToolCatalogItem(): void {
+    const agent = this.getSelectedAgent();
+    if (agent === null || this.toolCatalogModalState === null) {
+      return;
+    }
+    const item = this.toolCatalogModalState.items[this.toolCatalogModalState.selectedIndex];
+    if (item === undefined) {
+      return;
+    }
 
-        const toolsToml = this.ensureToolsToml(agent);
-        let content = this.safeRead(toolsToml).trimEnd();
-        if (this.hasToolName(content, item.name)) {
-          this.message = `Tool already declared: ${item.name}`;
-          this.renderAll();
-          return;
-        }
+    if (!existsSync(item.sourcePath)) {
+      this.message = `Binary missing: ${item.sourcePath}. Build it in ../agent-tools first.`;
+      this.renderAll();
+      return;
+    }
 
-        const block = [
-          "[[tool]]",
-          `name = "${item.name}"`,
-          'source = "path"',
-          `path = "${item.sourcePath}"`,
-          `binary = "${item.binary}"`,
-          `description = "${item.description.replace(/"/g, "\\\"")}"`,
-        ].join("\n");
+    const toolsToml = this.ensureToolsToml(agent);
+    let content = this.safeRead(toolsToml).trimEnd();
+    if (this.hasToolName(content, item.name)) {
+      this.message = `Tool already declared: ${item.name}`;
+      this.closeToolCatalogModal();
+      return;
+    }
 
-        content = `${content.length > 0 ? `${content}\n\n` : ""}${block}\n`;
-        writeFileSync(toolsToml, content, "utf-8");
-        this.message = `Added catalog tool '${item.name}' to ${relative(ROOT_DIR, toolsToml)}`;
-        this.loadCurrentFileByPath(toolsToml);
-        this.renderAll();
-      },
-    });
+    const block = [
+      "[[tool]]",
+      `name = "${item.name}"`,
+      'source = "path"',
+      `path = "${item.sourcePath}"`,
+      `binary = "${item.binary}"`,
+      `description = "${item.description.replace(/"/g, "\\\"")}"`,
+    ].join("\n");
+
+    content = `${content.length > 0 ? `${content}\n\n` : ""}${block}\n`;
+    writeFileSync(toolsToml, content, "utf-8");
+    this.message = `Added catalog tool '${item.name}' to ${relative(ROOT_DIR, toolsToml)}`;
+    this.closeToolCatalogModal();
+    this.loadCurrentFileByPath(toolsToml);
+    this.renderAll();
   }
 
   private promptAddAptPackages(): void {
