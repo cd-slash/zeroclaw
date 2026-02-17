@@ -1,5 +1,6 @@
 use super::traits::{Tool, ToolResult};
-use crate::memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+use crate::memory::docsd_client;
+use crate::memory::managed_docs::normalize_doc_id;
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
@@ -64,8 +65,13 @@ impl Tool for DocsAppendTool {
             });
         };
 
-        let mut store = ManagedDocStore::open(&self.workspace_dir)?;
-        store.append_block(&doc_id, section, content, "tool:docs_append")?;
+        docsd_client::append_doc(
+            &self.workspace_dir,
+            &doc_id,
+            section,
+            content,
+            "tool:docs_append",
+        )?;
         Ok(ToolResult {
             success: true,
             output: format!("Appended content to {doc_id}"),
@@ -97,8 +103,9 @@ mod tests {
 
         assert!(result.success);
 
-        let reader = ManagedDocStore::open(tmp.path()).unwrap();
-        let doc = reader.read_doc("memory").unwrap().unwrap();
+        let doc = docsd_client::read_doc(tmp.path(), "memory")
+            .unwrap()
+            .unwrap();
         assert!(doc.contains("## Lessons Learned"));
         assert!(doc.contains("Prefer append events"));
     }

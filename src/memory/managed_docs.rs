@@ -55,7 +55,7 @@ pub struct ManagedDocStore {
 
 impl ManagedDocStore {
     pub fn open(workspace_dir: &Path) -> anyhow::Result<Self> {
-        let db_path = workspace_dir.join("memory").join("brain.db");
+        let db_path = workspace_dir.join(".managed-docs").join("docs.db");
         if let Some(parent) = db_path.parent() {
             fs::create_dir_all(parent)?;
         }

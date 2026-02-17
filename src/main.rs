@@ -217,6 +217,16 @@ enum Commands {
         docs_command: DocsCommands,
     },
 
+    /// Run managed-docs daemon (docsd)
+    Docsd {
+        /// Unix socket path for docsd IPC
+        #[arg(long)]
+        socket: Option<String>,
+        /// Optional scaffold directory for first-run seeding
+        #[arg(long)]
+        scaffold_dir: Option<String>,
+    },
+
     /// Migrate data from other agent runtimes
     Migrate {
         #[command(subcommand)]
@@ -463,6 +473,22 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    if let Commands::Docsd {
+        socket,
+        scaffold_dir,
+    } = &cli.command
+    {
+        let workspace_dir = std::env::var("ZEROCLAW_WORKSPACE")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/zeroclaw-data/workspace"));
+        let socket_path = socket
+            .as_ref()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| memory::docsd_client::default_socket_path(&workspace_dir));
+        let scaffold_path = scaffold_dir.as_ref().map(PathBuf::from);
+        return memory::docsd::serve(&socket_path, &workspace_dir, scaffold_path.as_deref());
+    }
+
     // All other commands need config loaded first
     let mut config = Config::load_or_init()?;
     config.apply_env_overrides();
@@ -489,7 +515,7 @@ async fn main() -> Result<()> {
             .map(PathBuf::from)
             .filter(|path| path.exists());
 
-        match memory::managed_docs::initialize_managed_docs(
+        match memory::docsd_client::init_managed_docs(
             &config.workspace_dir,
             scaffold_dir.as_deref(),
         ) {
@@ -508,6 +534,7 @@ async fn main() -> Result<()> {
 
     match cli.command {
         Commands::Onboard { .. } => unreachable!(),
+        Commands::Docsd { .. } => unreachable!(),
 
         Commands::Agent {
             message,
@@ -648,12 +675,11 @@ async fn main() -> Result<()> {
         }
 
         Commands::Docs { docs_command } => {
-            use memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+            use memory::managed_docs::normalize_doc_id;
 
-            let mut store = ManagedDocStore::open(&config.workspace_dir)?;
             match docs_command {
                 DocsCommands::List => {
-                    let docs = store.list_doc_ids()?;
+                    let docs = memory::docsd_client::list_docs(&config.workspace_dir)?;
                     if docs.is_empty() {
                         println!("No managed documents initialized.");
                     } else {
@@ -667,7 +693,7 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    match store.read_doc(&doc_id)? {
+                    match memory::docsd_client::read_doc(&config.workspace_dir, &doc_id)? {
                         Some(content) => {
                             print!("{content}");
                             Ok(())
@@ -685,7 +711,13 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    store.append_block(&doc_id, section.as_deref(), &content, "cli:docs_append")?;
+                    memory::docsd_client::append_doc(
+                        &config.workspace_dir,
+                        &doc_id,
+                        section.as_deref(),
+                        &content,
+                        "cli:docs_append",
+                    )?;
                     println!("Appended content to {doc_id}");
                     Ok(())
                 }
@@ -697,7 +729,8 @@ async fn main() -> Result<()> {
                     let Some(doc_id) = normalize_doc_id(&doc) else {
                         bail!("Unsupported managed document: {doc}");
                     };
-                    store.replace_section(
+                    memory::docsd_client::replace_doc_section(
+                        &config.workspace_dir,
                         &doc_id,
                         &section,
                         &content,
@@ -707,7 +740,7 @@ async fn main() -> Result<()> {
                     Ok(())
                 }
                 DocsCommands::Materialize => {
-                    let count = store.materialize_all_docs()?;
+                    let count = memory::docsd_client::materialize_docs(&config.workspace_dir)?;
                     println!("Materialized {count} managed docs");
                     Ok(())
                 }

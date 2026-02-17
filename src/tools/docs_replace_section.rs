@@ -1,5 +1,6 @@
 use super::traits::{Tool, ToolResult};
-use crate::memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+use crate::memory::docsd_client;
+use crate::memory::managed_docs::normalize_doc_id;
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
@@ -67,8 +68,13 @@ impl Tool for DocsReplaceSectionTool {
             });
         };
 
-        let mut store = ManagedDocStore::open(&self.workspace_dir)?;
-        store.replace_section(&doc_id, section, content, "tool:docs_replace_section")?;
+        docsd_client::replace_doc_section(
+            &self.workspace_dir,
+            &doc_id,
+            section,
+            content,
+            "tool:docs_replace_section",
+        )?;
 
         Ok(ToolResult {
             success: true,
@@ -101,8 +107,9 @@ mod tests {
 
         assert!(result.success);
 
-        let reader = ManagedDocStore::open(tmp.path()).unwrap();
-        let doc = reader.read_doc("memory").unwrap().unwrap();
+        let doc = docsd_client::read_doc(tmp.path(), "memory")
+            .unwrap()
+            .unwrap();
         assert!(doc.contains("## Open Loops"));
         assert!(doc.contains("- Validate hello world path"));
     }

@@ -1,5 +1,6 @@
 use super::traits::{Tool, ToolResult};
-use crate::memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+use crate::memory::docsd_client;
+use crate::memory::managed_docs::normalize_doc_id;
 use async_trait::async_trait;
 use serde_json::json;
 use std::path::PathBuf;
@@ -51,8 +52,7 @@ impl Tool for DocsReadTool {
             });
         };
 
-        let store = ManagedDocStore::open(&self.workspace_dir)?;
-        match store.read_doc(&doc_id)? {
+        match docsd_client::read_doc(&self.workspace_dir, &doc_id)? {
             Some(content) => Ok(ToolResult {
                 success: true,
                 output: content,

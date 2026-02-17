@@ -1,5 +1,7 @@
 pub mod backend;
 pub mod chunker;
+pub mod docsd;
+pub mod docsd_client;
 pub mod embeddings;
 pub mod hygiene;
 pub mod lucid;
