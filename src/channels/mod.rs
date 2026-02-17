@@ -318,6 +318,9 @@ fn load_openclaw_bootstrap_files(
     prompt.push_str(
         "The following workspace files define your identity, behavior, and context. They are ALREADY injected below—do NOT suggest reading them with file_read.\n\n",
     );
+    prompt.push_str(
+        "Managed-doc policy: AGENTS.md, SOUL.md, TOOLS.md, IDENTITY.md, USER.md, HEARTBEAT.md, BOOTSTRAP.md, MEMORY.md and skills/*/SKILL.md are event-sourced and read-only on disk. To update them, ALWAYS use docs_append or docs_replace_section (and docs_read to verify). Never use file_write for these files.\n\n",
+    );
 
     let bootstrap_files = [
         "AGENTS.md",
@@ -1022,6 +1025,18 @@ pub async fn start_channels(config: Config) -> Result<()> {
         (
             "file_write",
             "Write file contents. Use when: applying focused edits, scaffolding files, updating docs/code. Don't use when: side effects are unclear or file ownership is uncertain.",
+        ),
+        (
+            "docs_read",
+            "Read managed markdown docs from the event store. Use when: checking AGENTS/SOUL/TOOLS/IDENTITY/USER/HEARTBEAT/BOOTSTRAP/MEMORY or skills docs.",
+        ),
+        (
+            "docs_append",
+            "Append markdown blocks to managed docs. Prefer for MEMORY.md incremental updates.",
+        ),
+        (
+            "docs_replace_section",
+            "Replace or create a specific section in a managed markdown document.",
         ),
         (
             "memory_store",

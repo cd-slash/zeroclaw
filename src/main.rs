@@ -34,6 +34,7 @@
 
 use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 
@@ -210,6 +211,12 @@ enum Commands {
         skill_command: SkillCommands,
     },
 
+    /// Manage event-sourced markdown docs (AGENTS/SOUL/TOOLS/IDENTITY/USER/HEARTBEAT/BOOTSTRAP/MEMORY and skills)
+    Docs {
+        #[command(subcommand)]
+        docs_command: DocsCommands,
+    },
+
     /// Migrate data from other agent runtimes
     Migrate {
         #[command(subcommand)]
@@ -241,6 +248,38 @@ enum MigrateCommands {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Subcommand, Debug)]
+enum DocsCommands {
+    /// List managed document streams stored in SQLite
+    List,
+    /// Read rendered content for a managed document
+    Read {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+    },
+    /// Append markdown content to a managed document (preferred for MEMORY.md)
+    Append {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+        /// Optional section title; writes as "## <section>" + content block
+        #[arg(long)]
+        section: Option<String>,
+        /// Markdown content to append
+        content: String,
+    },
+    /// Replace or create a level-2 section in a managed document
+    ReplaceSection {
+        /// Document selector (e.g. memory, identity, AGENTS.md, skills/my-skill/SKILL.md)
+        doc: String,
+        /// Section title matching heading text after "## "
+        section: String,
+        /// Replacement markdown body
+        content: String,
+    },
+    /// Re-render all managed docs from the event log into workspace files
+    Materialize,
 }
 
 #[derive(Subcommand, Debug)]
@@ -428,6 +467,45 @@ async fn main() -> Result<()> {
     let mut config = Config::load_or_init()?;
     config.apply_env_overrides();
 
+    let should_prepare_managed_docs = matches!(
+        &cli.command,
+        Commands::Agent { .. }
+            | Commands::Gateway { .. }
+            | Commands::Daemon { .. }
+            | Commands::Docs { .. }
+            | Commands::Channel {
+                channel_command: ChannelCommands::Start,
+            }
+    );
+
+    if should_prepare_managed_docs
+        && matches!(
+            memory::classify_memory_backend(&config.memory.backend),
+            memory::MemoryBackendKind::Sqlite | memory::MemoryBackendKind::Lucid
+        )
+    {
+        let scaffold_dir = std::env::var("AGENT_CONFIG_DIR")
+            .ok()
+            .map(PathBuf::from)
+            .filter(|path| path.exists());
+
+        match memory::managed_docs::initialize_managed_docs(
+            &config.workspace_dir,
+            scaffold_dir.as_deref(),
+        ) {
+            Ok(report) => {
+                tracing::info!(
+                    seeded = report.seeded_docs,
+                    materialized = report.materialized_docs,
+                    "Managed docs initialized"
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Managed docs initialization skipped: {e}");
+            }
+        }
+    }
+
     match cli.command {
         Commands::Onboard { .. } => unreachable!(),
 
@@ -567,6 +645,73 @@ async fn main() -> Result<()> {
 
         Commands::Skills { skill_command } => {
             skills::handle_command(skill_command, &config.workspace_dir)
+        }
+
+        Commands::Docs { docs_command } => {
+            use memory::managed_docs::{normalize_doc_id, ManagedDocStore};
+
+            let mut store = ManagedDocStore::open(&config.workspace_dir)?;
+            match docs_command {
+                DocsCommands::List => {
+                    let docs = store.list_doc_ids()?;
+                    if docs.is_empty() {
+                        println!("No managed documents initialized.");
+                    } else {
+                        for doc in docs {
+                            println!("{doc}");
+                        }
+                    }
+                    Ok(())
+                }
+                DocsCommands::Read { doc } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    match store.read_doc(&doc_id)? {
+                        Some(content) => {
+                            print!("{content}");
+                            Ok(())
+                        }
+                        None => {
+                            bail!("Managed document not initialized: {doc_id}");
+                        }
+                    }
+                }
+                DocsCommands::Append {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    store.append_block(&doc_id, section.as_deref(), &content, "cli:docs_append")?;
+                    println!("Appended content to {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::ReplaceSection {
+                    doc,
+                    section,
+                    content,
+                } => {
+                    let Some(doc_id) = normalize_doc_id(&doc) else {
+                        bail!("Unsupported managed document: {doc}");
+                    };
+                    store.replace_section(
+                        &doc_id,
+                        &section,
+                        &content,
+                        "cli:docs_replace_section",
+                    )?;
+                    println!("Updated section '{section}' in {doc_id}");
+                    Ok(())
+                }
+                DocsCommands::Materialize => {
+                    let count = store.materialize_all_docs()?;
+                    println!("Materialized {count} managed docs");
+                    Ok(())
+                }
+            }
         }
 
         Commands::Migrate { migrate_command } => {

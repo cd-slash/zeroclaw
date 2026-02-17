@@ -3,6 +3,7 @@ pub mod chunker;
 pub mod embeddings;
 pub mod hygiene;
 pub mod lucid;
+pub mod managed_docs;
 pub mod markdown;
 pub mod none;
 pub mod response_cache;
