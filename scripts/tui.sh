@@ -23,10 +23,10 @@ if [[ ! -d "$TUI_DIR/dist" ]] || [[ ! -f "$TUI_DIR/dist/index.js" ]]; then
     # Check if node_modules exists
     if [[ ! -d "$TUI_DIR/node_modules" ]]; then
         echo -e "${BLUE}[INFO]${NC} Installing dependencies..."
-        npm install
+        npm install 2>&1 | tail -5
     fi
     
-    npm run build
+    npm run build 2>&1
     
     if [[ $? -ne 0 ]]; then
         echo -e "${RED}[ERROR]${NC} Failed to build TUI"
