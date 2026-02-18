@@ -38,7 +38,11 @@ compose_agent() {
     SHARED_ENV_FILE="$PROJECT_DIR/.agents/.shared.env" \
     AGENT_ENV_FILE="$PROJECT_DIR/.agents/${agent}/.env" \
     AGENT_CONFIG_DIR_SOURCE="./.agents/${agent}" \
-    docker compose -p "$(compose_project_name "$agent")" -f "$COMPOSE_FILE" "$@"
+    docker compose \
+        -p "$(compose_project_name "$agent")" \
+        --env-file "$PROJECT_DIR/.agents/.shared.env" \
+        --env-file "$PROJECT_DIR/.agents/${agent}/.env" \
+        -f "$COMPOSE_FILE" "$@"
 }
 
 list_agents() {

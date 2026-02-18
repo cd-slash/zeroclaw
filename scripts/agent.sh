@@ -50,7 +50,11 @@ compose_agent() {
     SHARED_ENV_FILE="$AGENTS_DIR/.shared.env" \
     AGENT_ENV_FILE="$AGENTS_DIR/${agent}/.env" \
     AGENT_CONFIG_DIR_SOURCE="./.agents/${agent}" \
-    docker compose -p "$(compose_project_name "$agent")" -f "$COMPOSE_FILE" "$@"
+    docker compose \
+        -p "$(compose_project_name "$agent")" \
+        --env-file "$AGENTS_DIR/.shared.env" \
+        --env-file "$AGENTS_DIR/${agent}/.env" \
+        -f "$COMPOSE_FILE" "$@"
 }
 
 # Colors for output
