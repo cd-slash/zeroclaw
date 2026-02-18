@@ -29,11 +29,29 @@ cleanup() {
         kill -TERM "$ZEROCLAW_PID" 2>/dev/null || true
         wait "$ZEROCLAW_PID" 2>/dev/null || true
     fi
+
+    # Kill channel worker if running
+    if [ -n "${CHANNEL_PID:-}" ]; then
+        log "Stopping channel worker (PID: $CHANNEL_PID)..."
+        kill -TERM "$CHANNEL_PID" 2>/dev/null || true
+        wait "$CHANNEL_PID" 2>/dev/null || true
+    fi
     
     log "Shutdown complete"
 }
 
 trap cleanup EXIT INT TERM
+
+is_true() {
+    case "$1" in
+        true|1|yes|on)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
 
 # Check if Litestream is enabled
 if [ "${ZEROCLAW_LITESTREAM_ENABLED:-false}" = "true" ]; then
@@ -104,34 +122,41 @@ ZEROCLAW_PID=$!
 
 log "ZeroClaw started with PID: $ZEROCLAW_PID"
 
-# Monitor both processes
-if [ "${ZEROCLAW_LITESTREAM_ENABLED:-false}" = "true" ] && [ -n "${LITESTREAM_PID:-}" ]; then
-    log "Monitoring both ZeroClaw and Litestream..."
-    
-    while true; do
-        # Check if ZeroClaw is still running
-        if ! kill -0 "$ZEROCLAW_PID" 2>/dev/null; then
-            log "ZeroClaw process exited"
-            wait "$ZEROCLAW_PID" || true
-            ZEROCLAW_EXIT_CODE=$?
-            log "ZeroClaw exit code: $ZEROCLAW_EXIT_CODE"
-            exit $ZEROCLAW_EXIT_CODE
-        fi
-        
-        # Check if Litestream is still running
-        if ! kill -0 "$LITESTREAM_PID" 2>/dev/null; then
-            log "WARNING: Litestream process died, backup stopped"
-            wait "$LITESTREAM_PID" || true
-            # Don't exit - keep running without backup
-            unset LITESTREAM_PID
-        fi
-        
-        sleep 5
-    done
-else
-    # Just wait for ZeroClaw
-    log "Waiting for ZeroClaw..."
-    wait "$ZEROCLAW_PID" || true
-    ZEROCLAW_EXIT_CODE=$?
-    exit $ZEROCLAW_EXIT_CODE
+# Optionally start channel worker when running gateway mode
+if is_true "${ZEROCLAW_AUTO_START_CHANNELS:-false}" && [ "${1:-}" = "gateway" ]; then
+    log "Starting channel worker..."
+    zeroclaw channel start &
+    CHANNEL_PID=$!
+    log "Channel worker started with PID: $CHANNEL_PID"
 fi
+
+# Monitor both processes
+log "Monitoring ZeroClaw runtime..."
+
+while true; do
+    # Check if ZeroClaw is still running
+    if ! kill -0 "$ZEROCLAW_PID" 2>/dev/null; then
+        log "ZeroClaw process exited"
+        wait "$ZEROCLAW_PID"
+        ZEROCLAW_EXIT_CODE=$?
+        log "ZeroClaw exit code: $ZEROCLAW_EXIT_CODE"
+        exit "$ZEROCLAW_EXIT_CODE"
+    fi
+
+    # Check if Litestream is still running
+    if [ -n "${LITESTREAM_PID:-}" ] && ! kill -0 "$LITESTREAM_PID" 2>/dev/null; then
+        log "WARNING: Litestream process died, backup stopped"
+        wait "$LITESTREAM_PID" || true
+        # Keep running without backup
+        unset LITESTREAM_PID
+    fi
+
+    # Check if channel worker is still running
+    if [ -n "${CHANNEL_PID:-}" ] && ! kill -0 "$CHANNEL_PID" 2>/dev/null; then
+        log "WARNING: channel worker process died"
+        wait "$CHANNEL_PID" || true
+        unset CHANNEL_PID
+    fi
+
+    sleep 5
+done
