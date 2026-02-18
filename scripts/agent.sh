@@ -23,8 +23,9 @@
 #   ./scripts/agent.sh start handy          # Start the handy agent
 #   ./scripts/agent.sh up handy             # Rebuild and start handy
 #   ./scripts/agent.sh rebuild handy        # Rebuild handy image only
-#   ./scripts/agent.sh start gordon         # Start gordon on port 3001
-#   ./scripts/agent.sh start zoe          # Start zoe on port 3002
+#   ./scripts/agent.sh start gordon         # Start the gordon agent
+#   ./scripts/agent.sh start zoe            # Start the zoe agent
+#   ./scripts/agent.sh start dwayne         # Start the dwayne agent
 #   ./scripts/agent.sh logs handy -f      # Follow handy logs
 #   ./scripts/agent.sh create mybot       # Create new agent config
 
@@ -79,26 +80,20 @@ resolve_agent_tools() {
     fi
 }
 
-# Get the host port for an agent
-get_agent_port() {
+# Resolve advertised Tailscale hostname for an agent.
+# Falls back to agent directory name if TAILSCALE_HOSTNAME is unset.
+get_agent_hostname() {
     local agent="$1"
-    # Ports are assigned sequentially: handy=3000, gordon=3001, zoe=3002, etc.
-    # This is defined in docker-compose.agents.yml
-    case "$agent" in
-        handy) echo "3000" ;;
-        gordon) echo "3001" ;;
-        zoe) echo "3002" ;;
-        *) 
-            # For custom agents, try to extract from compose file
-            local port
-            port=$(grep -A 20 "container_name: zeroclaw-${agent}$" "$COMPOSE_FILE" | grep -E '^\s+- "[0-9]+:3000"' | head -1 | sed 's/.*- "\([0-9]*\):3000".*/\1/')
-            if [[ -n "$port" ]]; then
-                echo "$port"
-            else
-                echo ""
-            fi
-            ;;
-    esac
+    local env_file="$AGENTS_DIR/${agent}/.env"
+    if [[ -f "$env_file" ]]; then
+        local ts_host
+        ts_host=$(awk -F'=' '/^TAILSCALE_HOSTNAME=/{print $2}' "$env_file" | tail -n 1 | tr -d '"' || true)
+        if [[ -n "$ts_host" ]]; then
+            echo "$ts_host"
+            return
+        fi
+    fi
+    echo "$agent"
 }
 
 # List all available agents
@@ -125,30 +120,26 @@ list_agents() {
     done
     
     # Display agents
-    printf "%-15s %-10s %-8s %-20s\n" "AGENT" "STATUS" "PORT" "URL"
-    printf "%-15s %-10s %-8s %-20s\n" "-----" "------" "----" "---"
+    printf "%-15s %-10s %-28s\n" "AGENT" "STATUS" "ACCESS"
+    printf "%-15s %-10s %-28s\n" "-----" "------" "------"
     
     for agent in "${all_agents[@]}"; do
         [[ -z "$agent" ]] && continue
         
         local status="stopped"
-        local port
-        port=$(get_agent_port "$agent")
+        local hostname
+        hostname=$(get_agent_hostname "$agent")
         
         if docker compose -f "$COMPOSE_FILE" ps "${agent}" 2>/dev/null | grep -q "running"; then
             status="running"
         fi
         
-        local url=""
-        if [[ -n "$port" ]]; then
-            url="http://localhost:${port}"
-        fi
-        
-        printf "%-15s %-10s %-8s %-20s\n" "$agent" "$status" "${port:-auto}" "$url"
+        local access="${hostname} (Tailscale)"
+        printf "%-15s %-10s %-28s\n" "$agent" "$status" "$access"
     done
     
     echo ""
-    log_info "Built-in agents: handy (3000), gordon (3001), zoe (3002)"
+    log_info "Built-in agents: handy, gordon, zoe, dwayne"
     log_info "Custom agents: Create with './scripts/agent.sh create <name>'"
 }
 
@@ -157,13 +148,11 @@ start_agent() {
     local agent="$1"
     check_agent_config "$agent"
     
-    local port
-    port=$(get_agent_port "$agent")
+    local hostname
+    hostname=$(get_agent_hostname "$agent")
     
     log_info "Starting agent: $agent"
-    if [[ -n "$port" ]]; then
-        log_info "Gateway will be available at: http://localhost:${port}"
-    fi
+    log_info "Access via Tailscale hostname: ${hostname}"
     
     docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d
     
@@ -180,13 +169,11 @@ start_agent() {
 up_agent() {
     local agent="$1"
     check_agent_config "$agent"
-    local port
-    port=$(get_agent_port "$agent")
+    local hostname
+    hostname=$(get_agent_hostname "$agent")
 
     log_info "Rebuilding and starting agent: $agent"
-    if [[ -n "$port" ]]; then
-        log_info "Gateway will be available at: http://localhost:${port}"
-    fi
+    log_info "Access via Tailscale hostname: ${hostname}"
 
     resolve_agent_tools "$agent"
     docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d --build
@@ -270,12 +257,6 @@ create_agent() {
         log_error "Agent '$agent' already exists: $env_file"
         exit 1
     fi
-    
-    # Find next available port
-    local port=3000
-    while grep -q "\"${port}:3000\"" "$COMPOSE_FILE" 2>/dev/null; do
-        ((port++))
-    done
     
     # Create agent directory
     mkdir -p "$agent_dir"
@@ -516,9 +497,10 @@ Commands:
   help                    Show this help message
 
 Built-in Agents:
-  handy                   DevOps specialist (port 3000)
-  gordon                  Code review specialist (port 3001)
-  zoe                     Creative writing specialist (port 3002)
+  handy                   DevOps specialist (Tailscale access)
+  gordon                  Code review specialist (Tailscale access)
+  zoe                     Creative writing specialist (Tailscale access)
+  dwayne                  CCTV security specialist (Tailscale access)
 
 Examples:
   ./scripts/agent.sh list                    # Show all agents

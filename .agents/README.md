@@ -40,6 +40,9 @@ This directory contains environment configurations and identity templates for in
 ├── zoe/                    # Creative agent directory
 │   ├── .env
 │   └── ...
+├── dwayne/                 # Security agent directory
+│   ├── .env
+│   └── ...
 └── templates/              # Template files for new agents
     ├── IDENTITY.md.template
     ├── SOUL.md.template
@@ -98,11 +101,12 @@ Settings are loaded in this order (later overrides earlier):
 
 ## Built-in Agents
 
-| Agent  | Purpose              | Port | Config Directory |
-|--------|---------------------|------|-----------------|
-| handy  | DevOps/Infrastructure | 3000 | `handy/`        |
-| gordon | Code Review         | 3001 | `gordon/`       |
-| zoe    | Creative Writing    | 3002 | `zoe/`          |
+| Agent  | Purpose                | Access    | Config Directory |
+|--------|------------------------|-----------|------------------|
+| handy  | DevOps/Infrastructure  | Tailscale | `handy/`         |
+| gordon | Code Review            | Tailscale | `gordon/`        |
+| zoe    | Creative Writing       | Tailscale | `zoe/`           |
+| dwayne | CCTV Security          | Tailscale | `dwayne/`        |
 
 ## Identity Files
 
@@ -242,8 +246,8 @@ See docker-compose.agents.yml comments for the custom Dockerfile approach if nee
 ## Important Files
 
 - **.shared.env** - Put your API key here (ignored by git)
-- **handy/.env**, **gordon/.env**, **zoe/.env** - Agent configurations (HIDDEN)
-- **handy/**, **gordon/**, **zoe/** - Agent directories (config + identity + tools)
+- **handy/.env**, **gordon/.env**, **zoe/.env**, **dwayne/.env** - Agent configurations (HIDDEN)
+- **handy/**, **gordon/**, **zoe/**, **dwayne/** - Agent directories (config + identity + tools)
 - **docker-compose.agents.yml** - Service definitions
 - **../scripts/agent.sh** - Management CLI
 - **../docs/multi-agent-setup.md** - Full documentation

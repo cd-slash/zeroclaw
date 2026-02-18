@@ -1,0 +1,16 @@
+# Tool declarations for dwayne image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh dwayne
+
+# [[tool]]
+# name = "example-cctv-cli"
+# source = "path"
+# path = ".agents/dwayne/tools/example-cctv-cli"
+# binary = "example-cctv-cli"
+# description = "Example CCTV helper"
+# sha256 = ""
+
+# [apt]
+# packages = ["jq", "ffmpeg"]
+
+# [bun]
+# packages = ["typescript", "tsx"]
