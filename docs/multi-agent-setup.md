@@ -16,11 +16,14 @@ nano .agents/.shared.env
 # 2. Start an agent
 ./scripts/agent.sh start handy
 
-# 3. Access the agent
-open http://localhost:3000
+# 3. Access the agent through its Tailscale hostname/domain
+# (no unique host port mapping required)
 
 # 4. Start another agent
 ./scripts/agent.sh start gordon
+
+# 5. Start the CCTV security agent
+./scripts/agent.sh start dwayne
 ```
 
 ## Architecture
@@ -30,7 +33,7 @@ open http://localhost:3000
 │                        Host Machine                                 │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐       │
 │  │     handy      │  │     gordon     │  │      zoe       │       │
-│  │     :3000      │  │     :3001      │  │     :3002      │       │
+│  │  tailscale     │  │  tailscale     │  │   tailscale    │       │
 │  │                │  │                │  │                │       │
 │  │ .handy.env     │  │ .gordon.env    │  │  .zoe.env      │       │
 │  │ .handy/        │  │ .gordon/       │  │  .zoe/         │       │
@@ -49,7 +52,7 @@ open http://localhost:3000
 
 Each agent has:
 - **Isolated storage**: Separate Docker volumes (no data conflicts)
-- **Unique identity**: Distinct hostname, container name, and port
+- **Unique identity**: Distinct hostname and container identity on Tailscale
 - **Shared base config**: Common settings from `.shared.env`
 - **Agent-specific config**: Hidden `.env` file (e.g., `.handy.env`)
 - **Agent identity files**: Markdown files defining personality, behavior, and skills
@@ -73,6 +76,9 @@ Each agent has:
 ├── .zoe.env                # Creative agent config (HIDDEN FILE)
 ├── .zoe/                   # Creative agent identity
 │   └── ...
+├── .dwayne.env             # Security agent config (HIDDEN FILE)
+├── .dwayne/                # Security agent identity
+│   └── ...
 └── templates/              # Template files for new agents
     ├── IDENTITY.md.template
     ├── SOUL.md.template
@@ -88,11 +94,12 @@ scripts/agent.sh             # Management CLI
 
 ### Built-in Agents
 
-| Agent  | Role      | Port | Config File       | Description                    |
-|--------|-----------|------|-------------------|--------------------------------|
-| handy  | DevOps    | 3000 | `.handy.env`      | Infrastructure, CI/CD, shell   |
-| gordon | Code      | 3001 | `.gordon.env`     | Code review, refactoring       |
-| zoe    | Creative  | 3002 | `.zoe.env`        | Writing, documentation         |
+| Agent  | Role      | Access        | Config File       | Description                    |
+|--------|-----------|---------------|-------------------|--------------------------------|
+| handy  | DevOps    | Tailscale     | `.handy.env`      | Infrastructure, CI/CD, shell   |
+| gordon | Code      | Tailscale     | `.gordon.env`     | Code review, refactoring       |
+| zoe    | Creative  | Tailscale     | `.zoe.env`        | Writing, documentation         |
+| dwayne | Security  | Tailscale     | `.dwayne.env`     | CCTV monitoring and alert triage |
 
 ### Agent Configuration Files
 
@@ -141,8 +148,7 @@ And an identity directory with markdown files:
 Shows:
 - Agent names
 - Running/stopped status
-- Port assignments
-- Gateway URLs
+- Tailscale access hostnames
 
 ### Start an Agent
 
@@ -153,7 +159,7 @@ Shows:
 - Creates container if needed
 - Uses isolated storage volume
 - Loads shared + agent-specific config
-- Starts on assigned port
+- Exposes gateway on internal `:3000` and is accessed via Tailscale
 
 ### Stop an Agent
 
@@ -225,8 +231,6 @@ Edit `docker-compose.agents.yml` and add the service:
     environment:
       - AGENT_NAME=mybot
       - ZEROCLAW_GATEWAY_PORT=3000
-    ports:
-      - "3003:3000"
     volumes:
       - zeroclaw-data-mybot:/zeroclaw-data
       - tailscale-data-mybot:/var/lib/tailscale
@@ -455,18 +459,13 @@ ZEROCLAW_MEMORY_AUTO_SAVE=true
 ZEROCLAW_MEMORY_BACKEND=none
 ```
 
-## Port Assignment
+## Access Model
 
-Default port mapping:
+All agents run gateway on internal container port `3000`.
 
-| Agent  | Host Port | Container Port | URL                    |
-|--------|-----------|----------------|------------------------|
-| handy  | 3000      | 3000           | http://localhost:3000  |
-| gordon | 3001      | 3000           | http://localhost:3001  |
-| zoe    | 3002      | 3000           | http://localhost:3002  |
-| custom | auto      | 3000           | http://localhost:N     |
-
-New agents get the next available port (3003, 3004, etc.).
+- No per-agent host port mapping is required.
+- Reach each agent through its own Tailscale hostname/domain.
+- Distinct hostnames come from each agent's Tailscale identity, not port numbers.
 
 ## Use Cases
 
@@ -515,22 +514,19 @@ New agents get the next available port (3003, 3004, etc.).
 # Check logs
 ./scripts/agent.sh logs handy
 
-# Check if port is already in use
-lsof -i :3000
-
 # Restart with clean slate
 ./scripts/agent.sh stop handy
 ./scripts/agent.sh start handy
 ```
 
-### Port Conflicts
+### Access Issues
 
 ```bash
-# Find which ports are in use
+# Verify the agent is running
 ./scripts/agent.sh list
 
-# Edit docker-compose.agents.yml to change port mapping
-# Change: "3000:3000" → "3005:3000"
+# Confirm Tailscale identity inside the agent
+./scripts/agent.sh logs handy --tail 100
 ```
 
 ### Storage Issues
