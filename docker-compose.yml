@@ -14,18 +14,16 @@ services:
     # build: .
     container_name: zeroclaw
     restart: unless-stopped
-    
-    # Load all environment variables from .env file
-    # The entrypoint will auto-sync ZEROCLAW_* variables to config.toml
+
     env_file:
-      - .env
-    
-    # Only map specific vars needed at compose-level (hostname, ports)
+      - ${SHARED_ENV_FILE:-.agents/.shared.env}
+      - ${AGENT_ENV_FILE:-.env}
+
     environment:
-      # These are used by docker-compose itself (not just the container)
-      - HOSTNAME=${HOSTNAME:-zeroclaw}
-      - HOST_PORT=${HOST_PORT:-3000}
-    
+      - ZEROCLAW_GATEWAY_PORT=${ZEROCLAW_GATEWAY_PORT:-3000}
+      - ZEROCLAW_LITESTREAM_ENABLED=${ZEROCLAW_LITESTREAM_ENABLED:-true}
+      - AGENT_CONFIG_DIR=/agent-config
+
     volumes:
       # Persist workspace and config (must match WORKDIR/HOME in Dockerfile)
       - zeroclaw-data:/zeroclaw-data
@@ -53,6 +51,8 @@ services:
       retries: 3
       start_period: 10s
 
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
 volumes:
-  zeroclaw-data:
-  tailscale-data:
+  data:
+  tailscale:

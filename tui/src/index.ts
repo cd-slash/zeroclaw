@@ -107,6 +107,19 @@ const MANAGED_DOCS = [
 const VIRTUAL_RUNTIME_PREFIX = "@runtime:";
 const VIRTUAL_DIFF_PREFIX = "@diff:";
 
+const composeProjectName = (agentName: string): string => `zeroclaw-${agentName}`;
+const composeArgsForAgent = (agentName: string): string[] => [
+  "compose",
+  "-p",
+  composeProjectName(agentName),
+  "--env-file",
+  ".agents/.shared.env",
+  "--env-file",
+  `.agents/${agentName}/.env`,
+  "-f",
+  "docker-compose.yml",
+];
+
 const THEME = {
   bg: "#0b1018",
   panel: "#142033",
@@ -2282,15 +2295,7 @@ class AgentManagerTui {
 
     this.appendOpsOutput(`[remove] backups created for ${agentName}`);
 
-    const down = spawnSync("docker", [
-      "compose",
-      "-f",
-      "docker-compose.agents.yml",
-      "--profile",
-      agentName,
-      "down",
-      "--volumes",
-    ], {
+    const down = spawnSync("docker", [...composeArgsForAgent(agentName), "down", "--volumes"], {
       cwd: ROOT_DIR,
       encoding: "utf-8",
     });
@@ -2307,7 +2312,7 @@ class AgentManagerTui {
     rmSync(agentDir, { recursive: true, force: true });
     this.message = `Removed ${agentName}; data and config backups created in .backups/`;
     this.appendOpsOutput(`[remove] deleted ${relative(ROOT_DIR, agentDir)}`);
-    this.appendOpsOutput(`[remove] update docker-compose.agents.yml if service exists`);
+    this.appendOpsOutput("[remove] agent stack removed from docker-compose.yml template stack");
     this.refreshAgents();
     this.renderAll();
   }
@@ -2321,7 +2326,7 @@ class AgentManagerTui {
     this.logs = [`Starting log stream for ${agent.name}...`];
     this.logProcess = spawn(
       "docker",
-      ["compose", "-f", "docker-compose.agents.yml", "--profile", agent.name, "logs", "-f", "server"],
+      [...composeArgsForAgent(agent.name), "logs", "-f", "server"],
       { cwd: ROOT_DIR },
     );
 
@@ -2547,14 +2552,10 @@ class AgentManagerTui {
     const out = spawnSync(
       "docker",
       [
-        "compose",
-        "-f",
-        "docker-compose.agents.yml",
-        "--profile",
-        agent.name,
+        ...composeArgsForAgent(agent.name),
         "exec",
         "-T",
-        agent.name,
+        "server",
         "zeroclaw",
         "docs",
         "read",
