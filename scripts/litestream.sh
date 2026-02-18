@@ -24,7 +24,33 @@ set -euo pipefail
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.agents.yml"
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+
+compose_project_name() {
+    local agent="$1"
+    echo "zeroclaw-${agent}"
+}
+
+compose_agent() {
+    local agent="$1"
+    shift
+    AGENT_NAME="$agent" \
+    SHARED_ENV_FILE="$PROJECT_DIR/.agents/.shared.env" \
+    AGENT_ENV_FILE="$PROJECT_DIR/.agents/${agent}/.env" \
+    AGENT_CONFIG_DIR_SOURCE="./.agents/${agent}" \
+    docker compose -p "$(compose_project_name "$agent")" -f "$COMPOSE_FILE" "$@"
+}
+
+list_agents() {
+    for agent_dir in "$PROJECT_DIR/.agents"/*/; do
+        [[ -f "${agent_dir}/.env" ]] || continue
+        local name
+        name=$(basename "$agent_dir")
+        if [[ "$name" != "templates" && "$name" != "shared" ]]; then
+            echo "$name"
+        fi
+    done
+}
 
 # Colors
 RED='\033[0;31m'
@@ -54,13 +80,13 @@ status() {
     if [[ -z "$agent" ]]; then
         # Show status for all agents
         log_info "Checking Litestream status for all agents..."
-        for a in handy gordon zoe; do
-            if docker compose -f "$COMPOSE_FILE" ps "$a" 2>/dev/null | grep -q "running"; then
+        while IFS= read -r a; do
+            if compose_agent "$a" ps --status running --services 2>/dev/null | grep -qx "server"; then
                 echo ""
                 log_info "Agent: $a"
                 check_litestream_status "$a"
             fi
-        done
+        done < <(list_agents)
         return
     fi
     
@@ -75,14 +101,14 @@ check_litestream_status() {
     local agent="$1"
     
     # Check if agent container is running
-    if ! docker compose -f "$COMPOSE_FILE" ps "$agent" | grep -q "running"; then
+    if ! compose_agent "$agent" ps --status running --services | grep -qx "server"; then
         log_warn "Agent '$agent' is not running"
         return 1
     fi
     
     # Check if Litestream is enabled
     local litestream_enabled
-    litestream_enabled=$(docker compose -f "$COMPOSE_FILE" exec -T "$agent" \
+    litestream_enabled=$(compose_agent "$agent" exec -T server \
         printenv ZEROCLAW_LITESTREAM_ENABLED 2>/dev/null || echo "false")
     
     if [[ "$litestream_enabled" != "true" ]]; then
@@ -92,13 +118,13 @@ check_litestream_status() {
     fi
     
     # Check if Litestream process is running inside container
-    if docker compose -f "$COMPOSE_FILE" exec -T "$agent" \
+    if compose_agent "$agent" exec -T server \
         pgrep -x litestream > /dev/null 2>&1; then
         log_success "Litestream process is running inside agent container"
         
         # Show recent logs from Litestream
         log_info "Recent replication activity:"
-        docker compose -f "$COMPOSE_FILE" exec -T "$agent" \
+        compose_agent "$agent" exec -T server \
             tail -20 /tmp/litestream.log 2>/dev/null || \
             log_warn "No Litestream logs available yet"
     else
@@ -119,9 +145,9 @@ restore() {
     log_warn "Current database will be replaced. Ensure agent is stopped first."
     
     # Check if agent is running
-    if docker compose -f "$COMPOSE_FILE" ps "$agent" | grep -q "running"; then
+    if compose_agent "$agent" ps --status running --services | grep -qx "server"; then
         log_error "Agent '$agent' is still running. Stop it first:"
-        log_info "  docker compose -f docker-compose.agents.yml stop $agent"
+        log_info "  ./scripts/agent.sh stop $agent"
         exit 1
     fi
     
@@ -158,7 +184,7 @@ restore() {
     fi
     
     # Get volume name
-    local volume_name="${PROJECT_DIR##*/}_zeroclaw-data-${agent}"
+    local volume_name="$(compose_project_name "$agent")_data"
     
     # Create temporary restore container with Litestream
     docker run --rm \
@@ -185,20 +211,20 @@ logs() {
     if [[ -n "$agent" ]]; then
         check_agent "$agent"
         # Get logs from inside the agent container
-        docker compose -f "$COMPOSE_FILE" exec "$agent" \
+        compose_agent "$agent" exec server \
             tail -f /tmp/litestream.log 2>/dev/null || \
-            docker compose -f "$COMPOSE_FILE" logs "$@" "$agent" | grep -i litestream || true
+            compose_agent "$agent" logs "$@" server | grep -i litestream || true
     else
         # Show logs for all agents
-        for a in handy gordon zoe; do
-            if docker compose -f "$COMPOSE_FILE" ps "$a" 2>/dev/null | grep -q "running"; then
+        while IFS= read -r a; do
+            if compose_agent "$a" ps --status running --services 2>/dev/null | grep -qx "server"; then
                 echo ""
                 log_info "=== Agent: $a ==="
-                docker compose -f "$COMPOSE_FILE" exec -T "$a" \
+                compose_agent "$a" exec -T server \
                     tail -50 /tmp/litestream.log 2>/dev/null || \
                     log_warn "No Litestream logs for $a"
             fi
-        done
+        done < <(list_agents)
     fi
 }
 
@@ -211,7 +237,7 @@ snapshot() {
     log_info "Creating manual snapshot for agent: $agent"
     
     # Trigger snapshot inside the agent container
-    docker compose -f "$COMPOSE_FILE" exec "$agent" \
+    compose_agent "$agent" exec server \
         litestream snapshot \
         -config /tmp/litestream.yml \
         /zeroclaw-data/.zeroclaw/memory.db \

@@ -1,66 +1,53 @@
-# ZeroClaw Docker Compose Example
-# 
-# Quick start:
-#   1. Copy this file and set your API key
-#   2. Run: docker compose up -d
-#   3. Access gateway at http://localhost:3000
+# ZeroClaw generic single-agent compose stack.
 #
-# For more info: https://github.com/zeroclaw-labs/zeroclaw
+# This file defines one service (`server`) and relies on environment interpolation.
+# Use a unique compose project (`-p zeroclaw-<agent>`) per agent to isolate:
+# - container names
+# - networks
+# - volumes
 
 services:
-  zeroclaw:
-    # image: ghcr.io/zeroclaw-labs/zeroclaw:latest
-    # Build locally (dev image includes Tailscale support):
+  server:
     build:
       context: .
       target: dev
-    # Container name and hostname are aligned via HOSTNAME env var
-    container_name: ${HOSTNAME:-zeroclaw}
-    hostname: ${HOSTNAME:-zeroclaw}
+      args:
+        AGENT_NAME: ${AGENT_NAME:-_default}
+
+    hostname: ${TAILSCALE_HOSTNAME:-${AGENT_NAME:-zeroclaw}}
     restart: unless-stopped
-    
-    # Load all environment variables from .env file
-    # The entrypoint will auto-sync ZEROCLAW_* variables to config.toml
+
     env_file:
-      - .env
-    
-    # Only map specific vars needed at compose-level (hostname, ports)
+      - ${SHARED_ENV_FILE:-.agents/.shared.env}
+      - ${AGENT_ENV_FILE:-.env}
+
     environment:
-      # These are used by docker-compose itself (not just the container)
-      - HOSTNAME=${HOSTNAME:-zeroclaw}
-      - HOST_PORT=${HOST_PORT:-3000}
-    
+      - ZEROCLAW_GATEWAY_PORT=${ZEROCLAW_GATEWAY_PORT:-3000}
+      - ZEROCLAW_LITESTREAM_ENABLED=${ZEROCLAW_LITESTREAM_ENABLED:-true}
+      - AGENT_CONFIG_DIR=/agent-config
+
     volumes:
-      # Persist workspace and config (must match WORKDIR/HOME in Dockerfile)
-      - zeroclaw-data:/zeroclaw-data
-      # Persist Tailscale state
-      - tailscale-data:/var/lib/tailscale
-    
-    # No host ports exposed - use Tailscale for secure networking
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    # Required for Tailscale VPN:
+      - data:/zeroclaw-data
+      - tailscale:/var/lib/tailscale
+      - type: bind
+        source: ${AGENT_CONFIG_DIR_SOURCE:-./.agents/${AGENT_NAME}}
+        target: /agent-config
+        read_only: true
+
     devices:
       - /dev/net/tun:/dev/net/tun
     cap_add:
       - net_admin
 
-    # Health check
     healthcheck:
-      test: ["CMD", "zeroclaw", "status"]
-      interval: 60s
+      test: ["CMD", "zeroclaw", "doctor"]
+      interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
 
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
 volumes:
-  zeroclaw-data:
-  tailscale-data:
+  data:
+  tailscale:

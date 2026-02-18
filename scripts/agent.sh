@@ -35,8 +35,23 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 AGENTS_DIR="$PROJECT_DIR/.agents"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.agents.yml"
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
 RESOLVE_TOOLS_SCRIPT="$SCRIPT_DIR/resolve-agent-tools.sh"
+
+compose_project_name() {
+    local agent="$1"
+    echo "zeroclaw-${agent}"
+}
+
+compose_agent() {
+    local agent="$1"
+    shift
+    AGENT_NAME="$agent" \
+    SHARED_ENV_FILE="$AGENTS_DIR/.shared.env" \
+    AGENT_ENV_FILE="$AGENTS_DIR/${agent}/.env" \
+    AGENT_CONFIG_DIR_SOURCE="./.agents/${agent}" \
+    docker compose -p "$(compose_project_name "$agent")" -f "$COMPOSE_FILE" "$@"
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -130,7 +145,7 @@ list_agents() {
         local hostname
         hostname=$(get_agent_hostname "$agent")
         
-        if docker compose -f "$COMPOSE_FILE" ps "${agent}" 2>/dev/null | grep -q "running"; then
+        if compose_agent "$agent" ps --status running --services 2>/dev/null | grep -qx "server"; then
             status="running"
         fi
         
@@ -154,11 +169,11 @@ start_agent() {
     log_info "Starting agent: $agent"
     log_info "Access via Tailscale hostname: ${hostname}"
     
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d
+    compose_agent "$agent" up -d
     
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' started successfully"
-        log_info "Container name: zeroclaw-${agent}-server-1"
+        log_info "Container name: $(compose_project_name "$agent")-server-1"
         log_info "View logs: ./scripts/agent.sh logs $agent -f"
     else
         log_error "Failed to start agent '$agent'"
@@ -176,7 +191,7 @@ up_agent() {
     log_info "Access via Tailscale hostname: ${hostname}"
 
     resolve_agent_tools "$agent"
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" up -d --build
+    compose_agent "$agent" up -d --build
 
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' rebuilt and started successfully"
@@ -192,7 +207,7 @@ rebuild_agent() {
 
     log_info "Rebuilding agent image: $agent"
     resolve_agent_tools "$agent"
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" build "$agent"
+    compose_agent "$agent" build server
 
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' image rebuilt successfully"
@@ -208,7 +223,7 @@ stop_agent() {
     
     log_info "Stopping agent: $agent"
     # Use profile to stop the specific agent
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" down
+    compose_agent "$agent" down
     
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' stopped successfully"
@@ -229,22 +244,35 @@ restart_agent() {
 show_logs() {
     local agent="$1"
     shift
-    # Container is named zeroclaw-<agent>-server-1
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" logs "$@" "server"
+    compose_agent "$agent" logs "$@" server
 }
 
 # Open shell in agent container
 open_shell() {
     local agent="$1"
-    # Container is named zeroclaw-<agent>-server-1
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" exec "server" bash
+    compose_agent "$agent" exec server bash
 }
 
 # Show status of all agents
 show_status() {
     log_info "Agent container status:"
     echo ""
-    docker compose -f "$COMPOSE_FILE" ps
+    if [[ ! -d "$AGENTS_DIR" ]]; then
+        log_warn "Agents directory not found: $AGENTS_DIR"
+        return
+    fi
+
+    for agent_dir in "$AGENTS_DIR"/*/; do
+        if [[ -f "${agent_dir}/.env" ]]; then
+            local agent_name
+            agent_name=$(basename "$agent_dir")
+            if [[ "$agent_name" != "shared" && "$agent_name" != "templates" ]]; then
+                echo "[$(compose_project_name "$agent_name")]"
+                compose_agent "$agent_name" ps || true
+                echo ""
+            fi
+        fi
+    done
 }
 
 # Create a new agent
@@ -339,11 +367,11 @@ EOF
     log_info "  ./scripts/agent.sh start ${agent}"
     log_info ""
     log_info "Or with docker compose directly:"
-    log_info "  docker compose -f docker-compose.agents.yml --profile ${agent} up -d"
+    log_info "  AGENT_NAME=${agent} docker compose -p zeroclaw-${agent} -f docker-compose.yml up -d"
     log_info ""
     log_info "For custom container images per agent:"
     log_info "  1. Create $agent_dir/Dockerfile with your tools"
-    log_info "  2. Update docker-compose.agents.yml to use:"
+    log_info "  2. The generic docker-compose.yml already uses AGENT_NAME for image build"
     log_info "     build:"
     log_info "       context: ."
     log_info "       dockerfile: .agents/${agent}/Dockerfile"
@@ -367,8 +395,8 @@ remove_agent() {
     
     log_warn "WARNING: This will stop the agent and DELETE all its data!"
     log_warn "Volumes to be removed:"
-    log_warn "  - zeroclaw-data-${agent}"
-    log_warn "  - tailscale-data-${agent}"
+    log_warn "  - $(compose_project_name "$agent")_data"
+    log_warn "  - $(compose_project_name "$agent")_tailscale"
     echo ""
     read -p "Are you sure? Type 'yes' to confirm: " confirm
     
@@ -378,7 +406,7 @@ remove_agent() {
     fi
     
     # Stop if running
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" down --volumes 2>/dev/null || true
+    compose_agent "$agent" down --volumes 2>/dev/null || true
     
     # Remove agent directory (contains .env and all identity files)
     if [[ -d "$agent_dir" ]]; then
@@ -387,7 +415,7 @@ remove_agent() {
     fi
     
     log_success "Agent '$agent' removed"
-    log_info "Note: You may want to remove the service entry from $COMPOSE_FILE"
+    log_info "Note: Agent service is generic in $COMPOSE_FILE (no per-agent entry needed)"
 }
 
 # Main command dispatcher
@@ -515,7 +543,7 @@ Configuration:
   Agent configs are in: .agents/<agent_name>/.env
   Shared config is in:  .agents/.shared.env
   Agent directory:      .agents/<agent_name>/ (contains identity files, tools.toml)
-  Compose file:         docker-compose.agents.yml
+  Compose file:         docker-compose.yml
 
 For more information, see: docs/multi-agent-setup.md
 HELP

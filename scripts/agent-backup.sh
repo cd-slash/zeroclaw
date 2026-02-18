@@ -26,7 +26,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BACKUP_DIR="${PROJECT_DIR}/.backups"
-COMPOSE_FILE="$PROJECT_DIR/docker-compose.agents.yml"
+COMPOSE_FILE="$PROJECT_DIR/docker-compose.yml"
+
+compose_project_name() {
+    local agent="$1"
+    echo "zeroclaw-${agent}"
+}
+
+compose_agent() {
+    local agent="$1"
+    shift
+    AGENT_NAME="$agent" \
+    SHARED_ENV_FILE="$PROJECT_DIR/.agents/.shared.env" \
+    AGENT_ENV_FILE="$PROJECT_DIR/.agents/${agent}/.env" \
+    AGENT_CONFIG_DIR_SOURCE="./.agents/${agent}" \
+    docker compose -p "$(compose_project_name "$agent")" -f "$COMPOSE_FILE" "$@"
+}
 
 # MinIO Configuration (from environment or .env file)
 MINIO_ENDPOINT="${MINIO_ENDPOINT:-http://localhost:9000}"
@@ -49,7 +64,7 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 # Get volume name for agent
 get_volume_name() {
     local agent="$1"
-    echo "zeroclaw-data-${agent}"
+    echo "$(compose_project_name "$agent")_data"
 }
 
 # Check if agent exists
@@ -192,7 +207,7 @@ restore_agent() {
     
     # Stop agent if running
     log_info "Stopping agent if running..."
-    docker compose -f "$COMPOSE_FILE" --profile "$agent" down 2>/dev/null || true
+    compose_agent "$agent" down 2>/dev/null || true
     
     # Clear existing volume data
     log_info "Clearing existing data..."
