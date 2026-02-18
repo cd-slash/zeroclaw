@@ -29,6 +29,7 @@
 #   docker compose -f docker-compose.agents.yml --profile handy up -d
 #   docker compose -f docker-compose.agents.yml --profile gordon up -d
 #   docker compose -f docker-compose.agents.yml --profile zoe up -d
+#   docker compose -f docker-compose.agents.yml --profile dwayne up -d
 #
 # Or create new agents:
 #   ./scripts/agent.sh create mybot
@@ -61,8 +62,8 @@ services:
   # Pre-configured Agents
   # ============================================================================
   # Each agent has:
-  #   - A profile name (handy, gordon, zoe)
-  #   - A specific port mapping
+  #   - A profile name (handy, gordon, zoe, dwayne)
+  #   - Internal gateway on :3000 (accessed via per-agent Tailscale domain)
   #   - A bind mount for the agent's config directory
   #
   # Docker Compose automatically:
@@ -156,6 +157,31 @@ services:
       - tailscale:/var/lib/tailscale
       - type: bind
         source: ./.agents/zoe
+        target: /agent-config
+        read_only: true
+    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+
+  dwayne:
+    <<: *agent-base
+    build:
+      context: .
+      target: dev
+      args:
+        AGENT_NAME: dwayne
+    profiles: [dwayne]
+    env_file:
+      - .agents/.shared.env
+      - .agents/dwayne/.env
+    environment:
+      - ZEROCLAW_GATEWAY_PORT=3000
+      - ZEROCLAW_LITESTREAM_ENABLED=true
+      - AGENT_CONFIG_DIR=/agent-config
+    # No host ports exposed - agents use Tailscale for secure networking
+    volumes:
+      - data:/zeroclaw-data
+      - tailscale:/var/lib/tailscale
+      - type: bind
+        source: ./.agents/dwayne
         target: /agent-config
         read_only: true
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
