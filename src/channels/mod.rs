@@ -1019,6 +1019,27 @@ async fn build_memory_context(
     user_msg: &str,
     min_relevance_score: f64,
 ) -> String {
+    const MAX_CONTEXT_CHARS: usize = 1200;
+    const MAX_ENTRY_CHARS: usize = 240;
+
+    let trimmed = user_msg.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    // Skip memory hydration for lightweight greetings/commands to keep
+    // channel prompts small and avoid provider-side request rejections.
+    let lowered = trimmed.to_ascii_lowercase();
+    let is_light_message = trimmed.starts_with('/')
+        || lowered == "hi"
+        || lowered == "hello"
+        || lowered == "hey"
+        || lowered == "ping"
+        || lowered == "/start";
+    if is_light_message {
+        return String::new();
+    }
+
     let mut context = String::new();
 
     if let Ok(entries) = mem.recall(user_msg, 5, None).await {

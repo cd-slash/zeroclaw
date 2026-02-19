@@ -31,11 +31,46 @@ fn is_non_retryable(err: &anyhow::Error) -> bool {
     // Fallback: parse status codes from stringified errors (some providers
     // embed codes in error messages rather than returning typed HTTP errors).
     let msg = err.to_string();
-    for word in msg.split(|c: char| !c.is_ascii_digit()) {
-        if let Ok(code) = word.parse::<u16>() {
-            if (400..500).contains(&code) {
-                return code != 429 && code != 408;
+    let lower = msg.to_lowercase();
+    let has_http_context = [
+        "api error",
+        "http",
+        "status",
+        "bad request",
+        "unauthorized",
+        "forbidden",
+        "not found",
+        "client error",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle));
+
+    if !has_http_context {
+        return false;
+    }
+
+    for code in 400u16..500u16 {
+        if code == 429 || code == 408 {
+            continue;
+        }
+
+        let code_str = code.to_string();
+        let mut start = 0usize;
+        while let Some(rel_idx) = lower[start..].find(&code_str) {
+            let idx = start + rel_idx;
+            let end = idx + code_str.len();
+
+            let prev = lower[..idx].chars().next_back();
+            let next = lower[end..].chars().next();
+            let prev_is_digit = prev.map(|c| c.is_ascii_digit()).unwrap_or(false);
+            let next_is_digit = next.map(|c| c.is_ascii_digit()).unwrap_or(false);
+            let looks_like_port = prev == Some(':');
+
+            if !prev_is_digit && !next_is_digit && !looks_like_port {
+                return true;
             }
+
+            start = end;
         }
     }
 
@@ -85,6 +120,10 @@ fn is_context_window_exceeded(err: &anyhow::Error) -> bool {
     ];
 
     hints.iter().any(|hint| lower.contains(hint))
+}
+
+fn should_soften_non_retryable(provider_name: &str) -> bool {
+    provider_name.starts_with("minimax")
 }
 
 /// Check if an error is a rate-limit (429) error.
@@ -369,7 +408,7 @@ impl Provider for ReliableProvider {
                                 }
                             }
 
-                            if non_retryable {
+                            if non_retryable && !should_soften_non_retryable(provider_name) {
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -385,6 +424,13 @@ impl Provider for ReliableProvider {
                                 }
 
                                 break;
+                            } else if non_retryable {
+                                tracing::warn!(
+                                    provider = provider_name,
+                                    model = *current_model,
+                                    attempt = attempt + 1,
+                                    "Treating non-retryable error as retryable for provider"
+                                );
                             }
 
                             if attempt < self.max_retries {
@@ -487,7 +533,7 @@ impl Provider for ReliableProvider {
                                 }
                             }
 
-                            if non_retryable {
+                            if non_retryable && !should_soften_non_retryable(provider_name) {
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -503,6 +549,13 @@ impl Provider for ReliableProvider {
                                 }
 
                                 break;
+                            } else if non_retryable {
+                                tracing::warn!(
+                                    provider = provider_name,
+                                    model = *current_model,
+                                    attempt = attempt + 1,
+                                    "Treating non-retryable error as retryable for provider"
+                                );
                             }
 
                             if attempt < self.max_retries {
@@ -611,7 +664,7 @@ impl Provider for ReliableProvider {
                                 }
                             }
 
-                            if non_retryable {
+                            if non_retryable && !should_soften_non_retryable(provider_name) {
                                 tracing::warn!(
                                     provider = provider_name,
                                     model = *current_model,
@@ -627,6 +680,13 @@ impl Provider for ReliableProvider {
                                 }
 
                                 break;
+                            } else if non_retryable {
+                                tracing::warn!(
+                                    provider = provider_name,
+                                    model = *current_model,
+                                    attempt = attempt + 1,
+                                    "Treating non-retryable error as retryable for provider"
+                                );
                             }
 
                             if attempt < self.max_retries {
@@ -1066,6 +1126,9 @@ mod tests {
             "500 Internal Server Error"
         )));
         assert!(!is_non_retryable(&anyhow::anyhow!("502 Bad Gateway")));
+        assert!(!is_non_retryable(&anyhow::anyhow!(
+            "request failed: connect to api.minimax.io:443 timed out"
+        )));
         assert!(!is_non_retryable(&anyhow::anyhow!("timeout")));
         assert!(!is_non_retryable(&anyhow::anyhow!("connection reset")));
         assert!(!is_non_retryable(&anyhow::anyhow!(
