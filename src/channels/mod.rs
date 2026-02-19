@@ -704,11 +704,17 @@ async fn process_channel_message(ctx: Arc<ChannelRuntimeContext>, msg: traits::C
             .await;
     }
 
-    let enriched_message = if memory_context.is_empty() {
+    let mut enriched_message = if memory_context.is_empty() {
         msg.content.clone()
     } else {
         format!("{memory_context}{}", msg.content)
     };
+
+    if let Some(instructions) = channel_delivery_instructions(&msg.channel) {
+        enriched_message = format!(
+            "[Channel delivery requirements]\n{instructions}\n\nUser message:\n{enriched_message}"
+        );
+    }
 
     println!("  ⏳ Processing message...");
     let started_at = Instant::now();
@@ -725,10 +731,6 @@ async fn process_channel_message(ctx: Arc<ChannelRuntimeContext>, msg: traits::C
     let mut history = vec![ChatMessage::system(ctx.system_prompt.as_str())];
     history.append(&mut prior_turns);
     history.push(ChatMessage::user(&enriched_message));
-
-    if let Some(instructions) = channel_delivery_instructions(&msg.channel) {
-        history.push(ChatMessage::system(instructions));
-    }
 
     // Determine if this channel supports streaming draft updates
     let use_streaming = target_channel
