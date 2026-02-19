@@ -42,7 +42,6 @@ use crate::tools::{self, Tool};
 use crate::util::truncate_with_ellipsis;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::fmt::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -101,6 +100,27 @@ async fn build_memory_context(
     user_msg: &str,
     min_relevance_score: f64,
 ) -> String {
+    const MAX_CONTEXT_CHARS: usize = 1200;
+    const MAX_ENTRY_CHARS: usize = 240;
+
+    let trimmed = user_msg.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    // Skip memory hydration for lightweight greetings/commands to keep
+    // channel prompts small and avoid provider-side request rejections.
+    let lowered = trimmed.to_ascii_lowercase();
+    let is_light_message = trimmed.starts_with('/')
+        || lowered == "hi"
+        || lowered == "hello"
+        || lowered == "hey"
+        || lowered == "ping"
+        || lowered == "/start";
+    if is_light_message {
+        return String::new();
+    }
+
     let mut context = String::new();
 
     if let Ok(entries) = mem.recall(user_msg, 5, None).await {
@@ -108,14 +128,24 @@ async fn build_memory_context(
             .iter()
             .filter(|e| match e.score {
                 Some(score) => score >= min_relevance_score,
-                None => true, // keep entries without a score (e.g. non-vector backends)
+                None => false,
             })
             .collect();
 
         if !relevant.is_empty() {
             context.push_str("[Memory context]\n");
             for entry in &relevant {
-                let _ = writeln!(context, "- {}: {}", entry.key, entry.content);
+                let mut content = entry.content.replace('\n', " ");
+                if content.chars().count() > MAX_ENTRY_CHARS {
+                    content = content.chars().take(MAX_ENTRY_CHARS).collect::<String>();
+                    content.push_str("...");
+                }
+
+                let line = format!("- {}: {}\n", entry.key, content);
+                if context.len() + line.len() > MAX_CONTEXT_CHARS {
+                    break;
+                }
+                context.push_str(&line);
             }
             context.push('\n');
         }
@@ -233,11 +263,17 @@ async fn process_channel_message(ctx: Arc<ChannelRuntimeContext>, msg: traits::C
             .await;
     }
 
-    let enriched_message = if memory_context.is_empty() {
+    let mut enriched_message = if memory_context.is_empty() {
         msg.content.clone()
     } else {
         format!("{memory_context}{}", msg.content)
     };
+
+    if let Some(instructions) = channel_delivery_instructions(&msg.channel) {
+        enriched_message = format!(
+            "[Channel delivery requirements]\n{instructions}\n\nUser message:\n{enriched_message}"
+        );
+    }
 
     let target_channel = ctx.channels_by_name.get(&msg.channel).cloned();
 
@@ -257,10 +293,6 @@ async fn process_channel_message(ctx: Arc<ChannelRuntimeContext>, msg: traits::C
     let mut history = vec![ChatMessage::system(ctx.system_prompt.as_str())];
     history.append(&mut prior_turns);
     history.push(ChatMessage::user(&enriched_message));
-
-    if let Some(instructions) = channel_delivery_instructions(&msg.channel) {
-        history.push(ChatMessage::system(instructions));
-    }
 
     // Determine if this channel supports streaming draft updates
     let use_streaming = target_channel
@@ -402,6 +434,137 @@ async fn process_channel_message(ctx: Arc<ChannelRuntimeContext>, msg: traits::C
             }
         }
         Ok(Err(e)) => {
+            if e.to_string().contains("All providers/models failed") {
+                tracing::warn!(
+                    channel = msg.channel.as_str(),
+                    "LLM failed; retrying channel turn once"
+                );
+                tokio::time::sleep(Duration::from_millis(1200)).await;
+
+                let retry_result = tokio::time::timeout(
+                    Duration::from_secs(CHANNEL_MESSAGE_TIMEOUT_SECS),
+                    run_tool_call_loop(
+                        ctx.provider.as_ref(),
+                        &mut history,
+                        ctx.tools_registry.as_ref(),
+                        ctx.observer.as_ref(),
+                        "channel-runtime",
+                        ctx.model.as_str(),
+                        ctx.temperature,
+                        true,
+                        None,
+                        msg.channel.as_str(),
+                        ctx.max_tool_iterations,
+                        None,
+                    ),
+                )
+                .await;
+
+                if let Ok(Ok(response)) = retry_result {
+                    {
+                        let mut histories = ctx
+                            .conversation_histories
+                            .lock()
+                            .unwrap_or_else(|err| err.into_inner());
+                        let turns = histories.entry(history_key).or_default();
+                        turns.push(ChatMessage::user(&enriched_message));
+                        turns.push(ChatMessage::assistant(&response));
+                        while turns.len() > MAX_CHANNEL_HISTORY {
+                            turns.remove(0);
+                        }
+                    }
+
+                    println!(
+                        "  🤖 Reply (retry, {}ms): {}",
+                        started_at.elapsed().as_millis(),
+                        truncate_with_ellipsis(&response, 80)
+                    );
+
+                    if let Some(channel) = target_channel.as_ref() {
+                        if let Some(ref draft_id) = draft_message_id {
+                            if let Err(err) = channel
+                                .finalize_draft(&msg.reply_target, draft_id, &response)
+                                .await
+                            {
+                                tracing::warn!(
+                                    "Failed to finalize draft after retry: {err}; sending as new message"
+                                );
+                                let _ = channel
+                                    .send(&SendMessage::new(&response, &msg.reply_target))
+                                    .await;
+                            }
+                        } else if let Err(err) = channel
+                            .send(&SendMessage::new(response, &msg.reply_target))
+                            .await
+                        {
+                            eprintln!(
+                                "  ❌ Failed to reply on {} after retry: {err}",
+                                channel.name()
+                            );
+                        }
+                    }
+                    return;
+                }
+
+                tracing::warn!(
+                    channel = msg.channel.as_str(),
+                    "LLM retry failed; attempting plain chat fallback without tool loop"
+                );
+
+                let plain_fallback = tokio::time::timeout(
+                    Duration::from_secs(CHANNEL_MESSAGE_TIMEOUT_SECS),
+                    ctx.provider
+                        .chat_with_history(&history, ctx.model.as_str(), ctx.temperature),
+                )
+                .await;
+
+                if let Ok(Ok(response)) = plain_fallback {
+                    {
+                        let mut histories = ctx
+                            .conversation_histories
+                            .lock()
+                            .unwrap_or_else(|err| err.into_inner());
+                        let turns = histories.entry(history_key).or_default();
+                        turns.push(ChatMessage::user(&enriched_message));
+                        turns.push(ChatMessage::assistant(&response));
+                        while turns.len() > MAX_CHANNEL_HISTORY {
+                            turns.remove(0);
+                        }
+                    }
+
+                    println!(
+                        "  🤖 Reply (plain fallback, {}ms): {}",
+                        started_at.elapsed().as_millis(),
+                        truncate_with_ellipsis(&response, 80)
+                    );
+
+                    if let Some(channel) = target_channel.as_ref() {
+                        if let Some(ref draft_id) = draft_message_id {
+                            if let Err(err) = channel
+                                .finalize_draft(&msg.reply_target, draft_id, &response)
+                                .await
+                            {
+                                tracing::warn!(
+                                    "Failed to finalize draft after plain fallback: {err}; sending as new message"
+                                );
+                                let _ = channel
+                                    .send(&SendMessage::new(&response, &msg.reply_target))
+                                    .await;
+                            }
+                        } else if let Err(err) = channel
+                            .send(&SendMessage::new(response, &msg.reply_target))
+                            .await
+                        {
+                            eprintln!(
+                                "  ❌ Failed to reply on {} after plain fallback: {err}",
+                                channel.name()
+                            );
+                        }
+                    }
+                    return;
+                }
+            }
+
             eprintln!(
                 "  ❌ LLM error after {}ms: {e}",
                 started_at.elapsed().as_millis()

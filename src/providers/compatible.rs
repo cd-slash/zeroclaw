@@ -817,7 +817,10 @@ impl Provider for OpenAiCompatibleProvider {
     }
 
     fn supports_native_tools(&self) -> bool {
-        true
+        // MiniMax chat-completions compatibility is stable for plain text turns,
+        // but native tool schema requests are intermittently rejected upstream.
+        // Keep MiniMax on prompt-guided tool flow for reliability.
+        !super::is_minimax_alias(self.name.to_ascii_lowercase().as_str())
     }
 
     fn supports_streaming(&self) -> bool {
@@ -1053,6 +1056,23 @@ mod tests {
             AuthStyle::Custom("X-Custom-Key".into()),
         );
         assert!(matches!(p.auth_header, AuthStyle::Custom(_)));
+    }
+
+    #[test]
+    fn supports_native_tools_disabled_for_minimax_aliases() {
+        let intl = make_provider("minimax", "https://api.minimax.io/v1", Some("key"));
+        let cn = make_provider("minimax-cn", "https://api.minimaxi.com/v1", Some("key"));
+        let legacy = make_provider("minimax-intl", "https://api.minimax.io/v1", Some("key"));
+
+        assert!(!intl.supports_native_tools());
+        assert!(!cn.supports_native_tools());
+        assert!(!legacy.supports_native_tools());
+    }
+
+    #[test]
+    fn supports_native_tools_enabled_for_non_minimax_provider() {
+        let p = make_provider("openrouter", "https://openrouter.ai/api/v1", Some("key"));
+        assert!(p.supports_native_tools());
     }
 
     #[tokio::test]
