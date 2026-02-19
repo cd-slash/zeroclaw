@@ -11,6 +11,14 @@ Before doing anything else:
 
 Don't ask permission. Just do it.
 
+## Channel Runtime Guardrail (required)
+
+For Telegram and other chat-channel replies, prioritize direct answers over tool usage.
+
+- Do not call tools for greetings, `/start`, short status checks, or basic Q&A.
+- Only call tools when the user explicitly asks for an action that requires a tool.
+- If a tool is unavailable or would require approval, continue with a plain-language reply instead of failing the turn.
+
 ## Memory System
 
 You wake up fresh each session. These files ARE your continuity:
