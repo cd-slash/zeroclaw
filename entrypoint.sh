@@ -195,15 +195,44 @@ mkdir -p "$DOCSD_DIR"
 chown -R docsd:zeroclawdocs "$DOCSD_DIR"
 chmod 0770 "$DOCSD_DIR"
 
+# Materialize identity markdown files from mounted agent config when missing.
+# This keeps workspace bootstrap files available for prompt injection even before
+# managed-docs materialization runs.
+if [ -n "$AGENT_CONFIG_DIR" ] && [ -d "$AGENT_CONFIG_DIR" ]; then
+    for doc in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md BOOTSTRAP.md MEMORY.md; do
+        src_path="$AGENT_CONFIG_DIR/$doc"
+        dst_path="/zeroclaw-data/workspace/$doc"
+        if [ -f "$src_path" ] && [ ! -f "$dst_path" ]; then
+            cp "$src_path" "$dst_path"
+            chown docsd:zeroclawdocs "$dst_path" 2>/dev/null || true
+            chmod 0444 "$dst_path" 2>/dev/null || true
+        fi
+    done
+
+    if [ -d "$AGENT_CONFIG_DIR/skills" ]; then
+        while IFS= read -r -d '' skill_file; do
+            rel_path="${skill_file#${AGENT_CONFIG_DIR}/}"
+            dst_path="/zeroclaw-data/workspace/${rel_path}"
+            dst_dir="$(dirname "$dst_path")"
+            mkdir -p "$dst_dir"
+            if [ ! -f "$dst_path" ]; then
+                cp "$skill_file" "$dst_path"
+                chown docsd:zeroclawdocs "$dst_path" 2>/dev/null || true
+                chmod 0444 "$dst_path" 2>/dev/null || true
+            fi
+        done < <(find "$AGENT_CONFIG_DIR/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f -print0)
+    fi
+fi
+
 for doc in AGENTS.md SOUL.md TOOLS.md IDENTITY.md USER.md HEARTBEAT.md BOOTSTRAP.md MEMORY.md; do
     if [ -f "/zeroclaw-data/workspace/$doc" ]; then
         chown docsd:zeroclawdocs "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
-        chmod 0664 "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
+        chmod 0444 "/zeroclaw-data/workspace/$doc" 2>/dev/null || true
     fi
 done
 if [ -d "/zeroclaw-data/workspace/skills" ]; then
     find "/zeroclaw-data/workspace/skills" -mindepth 2 -maxdepth 2 -name "SKILL.md" -type f \
-        -exec chown docsd:zeroclawdocs {} \; -exec chmod 0664 {} \; 2>/dev/null || true
+        -exec chown docsd:zeroclawdocs {} \; -exec chmod 0444 {} \; 2>/dev/null || true
 fi
 
 if ! pgrep -u docsd -f "zeroclaw docsd" >/dev/null 2>&1; then
