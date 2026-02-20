@@ -217,6 +217,14 @@ struct QwenOauthCredentials {
 impl std::fmt::Debug for QwenOauthCredentials {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QwenOauthCredentials")
+            .field(
+                "access_token",
+                &self.access_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "refresh_token",
+                &self.refresh_token.as_ref().map(|_| "[REDACTED]"),
+            )
             .field("resource_url", &self.resource_url)
             .field("expiry_date", &self.expiry_date)
             .finish_non_exhaustive()
@@ -248,6 +256,10 @@ struct QwenOauthProviderContext {
 impl std::fmt::Debug for QwenOauthProviderContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QwenOauthProviderContext")
+            .field(
+                "credential",
+                &self.credential.as_ref().map(|_| "[REDACTED]"),
+            )
             .field("base_url", &self.base_url)
             .finish_non_exhaustive()
     }
@@ -873,7 +885,7 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
     }
 
     // Finally, fall back to the explicit credential override from config.toml
-    api_key
+    credential_override
         .map(str::trim)
         .filter(|k| !k.is_empty())
         .map(|k| k.to_string())
