@@ -81,7 +81,7 @@ zeroclaw-backups/
     ├── gordon/
     │   └── memory.db/
     │       └── ...
-    └── zoe/
+    └── giles/
         └── memory.db/
             └── ...
 ```
@@ -179,7 +179,7 @@ docker compose exec tailscale-sidecar tailscale status
 
 ### 2. Configure ZeroClaw Agents
 
-Edit `.agents/.handy.env` (and `.gordon.env`, `.zoe.env`):
+Edit `.agents/.handy.env` (and `.gordon.env`, `.giles.env`):
 
 ```bash
 # =============================================================================

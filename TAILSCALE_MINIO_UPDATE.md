@@ -47,7 +47,7 @@ ZeroClaw connects to: https://minio.minio.your-tailnet.ts.net:9000
 - Removed localhost references
 - Added security benefits section
 
-### 4. zeroclaw/.agents/.handy.env (and .gordon.env, .zoe.env)
+### 4. zeroclaw/.agents/.handy.env (and .gordon.env, .giles.env)
 **Changed:**
 ```bash
 # From:

@@ -307,7 +307,7 @@ zeroclaw-backups/          (bucket)
 ├── gordon/
 │   ├── gordon-20250115-143025.tar.gz
 │   └── ...
-└── zoe/
+└── giles/
     └── ...
 ```
 
@@ -359,7 +359,7 @@ cd zeroclaw
 # Start all agents
 ./scripts/agent.sh start handy
 ./scripts/agent.sh start gordon
-./scripts/agent.sh start zoe
+./scripts/agent.sh start giles
 ```
 
 ## Automated Backups
@@ -468,14 +468,14 @@ mc ilm add myminio/zeroclaw-backups --expiry-days 30
 # 2. Clone ZeroClaw repository
 # 3. Download all backups from MinIO
 
-for agent in handy gordon zoe; do
+for agent in handy gordon giles; do
     ./scripts/agent-backup.sh sync-from-minio $agent
 done
 
 # 4. Start all agents
 ./scripts/agent.sh start handy
 ./scripts/agent.sh start gordon
-./scripts/agent.sh start zoe
+./scripts/agent.sh start giles
 ```
 
 #### 3. Database Corruption

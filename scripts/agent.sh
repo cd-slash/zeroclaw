@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # ZeroClaw Multi-Agent Manager
-# 
+#
 # Usage:
 #   ./scripts/agent.sh <command> [agent_name]
 #
@@ -24,7 +24,7 @@
 #   ./scripts/agent.sh up handy             # Rebuild and start handy
 #   ./scripts/agent.sh rebuild handy        # Rebuild handy image only
 #   ./scripts/agent.sh start gordon         # Start the gordon agent
-#   ./scripts/agent.sh start zoe            # Start the zoe agent
+#   ./scripts/agent.sh start giles            # Start the giles agent
 #   ./scripts/agent.sh start dwayne         # Start the dwayne agent
 #   ./scripts/agent.sh logs handy -f      # Follow handy logs
 #   ./scripts/agent.sh create mybot       # Create new agent config
@@ -119,12 +119,12 @@ get_agent_hostname() {
 list_agents() {
     log_info "Available agents:"
     echo ""
-    
+
     if [[ ! -d "$AGENTS_DIR" ]]; then
         log_warn "Agents directory not found: $AGENTS_DIR"
         return
     fi
-    
+
     # Get all agents from subdirectories containing .env files
     local all_agents=()
     for agent_dir in "$AGENTS_DIR"/*/; do
@@ -137,28 +137,28 @@ list_agents() {
             fi
         fi
     done
-    
+
     # Display agents
     printf "%-15s %-10s %-28s\n" "AGENT" "STATUS" "ACCESS"
     printf "%-15s %-10s %-28s\n" "-----" "------" "------"
-    
+
     for agent in "${all_agents[@]}"; do
         [[ -z "$agent" ]] && continue
-        
+
         local status="stopped"
         local hostname
         hostname=$(get_agent_hostname "$agent")
-        
-        if compose_agent "$agent" ps --status running --services 2>/dev/null | grep -qx "server"; then
+
+        if compose_agent "$agent" ps --status running --services 2>/dev/null | grep -qx "zeroclaw"; then
             status="running"
         fi
-        
+
         local access="${hostname} (Tailscale)"
         printf "%-15s %-10s %-28s\n" "$agent" "$status" "$access"
     done
-    
+
     echo ""
-    log_info "Built-in agents: handy, gordon, zoe, dwayne"
+    log_info "Built-in agents: handy, gordon, giles, dwayne"
     log_info "Custom agents: Create with './scripts/agent.sh create <name>'"
 }
 
@@ -166,18 +166,18 @@ list_agents() {
 start_agent() {
     local agent="$1"
     check_agent_config "$agent"
-    
+
     local hostname
     hostname=$(get_agent_hostname "$agent")
-    
+
     log_info "Starting agent: $agent"
     log_info "Access via Tailscale hostname: ${hostname}"
-    
+
     compose_agent "$agent" up -d
-    
+
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' started successfully"
-        log_info "Container name: $(compose_project_name "$agent")-server-1"
+        log_info "Container name: $(compose_project_name "$agent")-zeroclaw-1"
         log_info "View logs: ./scripts/agent.sh logs $agent -f"
     else
         log_error "Failed to start agent '$agent'"
@@ -211,7 +211,7 @@ rebuild_agent() {
 
     log_info "Rebuilding agent image: $agent"
     resolve_agent_tools "$agent"
-    compose_agent "$agent" build server
+    compose_agent "$agent" build zeroclaw
 
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' image rebuilt successfully"
@@ -224,11 +224,11 @@ rebuild_agent() {
 # Stop an agent
 stop_agent() {
     local agent="$1"
-    
+
     log_info "Stopping agent: $agent"
     # Use profile to stop the specific agent
     compose_agent "$agent" down
-    
+
     if [[ $? -eq 0 ]]; then
         log_success "Agent '$agent' stopped successfully"
     else
@@ -248,13 +248,13 @@ restart_agent() {
 show_logs() {
     local agent="$1"
     shift
-    compose_agent "$agent" logs "$@" server
+    compose_agent "$agent" logs "$@" zeroclaw
 }
 
 # Open shell in agent container
 open_shell() {
     local agent="$1"
-    compose_agent "$agent" exec server bash
+    compose_agent "$agent" exec zeroclaw bash
 }
 
 # Show status of all agents
@@ -284,15 +284,15 @@ create_agent() {
     local agent="$1"
     local agent_dir="$AGENTS_DIR/${agent}"
     local env_file="${agent_dir}/.env"
-    
+
     if [[ -f "$env_file" ]]; then
         log_error "Agent '$agent' already exists: $env_file"
         exit 1
     fi
-    
+
     # Create agent directory
     mkdir -p "$agent_dir"
-    
+
     # Create agent config
     cat > "$env_file" << EOF
 AGENT_NAME=${agent}
@@ -305,7 +305,7 @@ ZEROCLAW_TEMPERATURE=0.7
 # Optional: override Tailscale device hostname.
 # TAILSCALE_HOSTNAME=${agent}
 EOF
-    
+
     # Create agent subdirectories
     mkdir -p "$agent_dir/skills"
     mkdir -p "$agent_dir/tools"
@@ -341,7 +341,7 @@ EOF
 # description = "Remote example binary"
 # sha256 = ""
 EOF
-    
+
     # Copy template files
     local templates_dir="$AGENTS_DIR/templates"
     if [[ -d "$templates_dir" ]]; then
@@ -352,14 +352,14 @@ EOF
         sed "s/{{AGENT_NAME}}/${agent}/g" "$templates_dir/USER.md.template" > "$agent_dir/USER.md"
         sed "s/{{AGENT_NAME}}/${agent}/g" "$templates_dir/TOOLS.md.template" > "$agent_dir/TOOLS.md"
         cp "$templates_dir/MEMORY.md.template" "$agent_dir/MEMORY.md"
-        
+
         # Set default communication style
         sed -i "s/{{COMMUNICATION_STYLE}}/Be warm, natural, and clear. Use occasional relevant emojis (1-2 max) and avoid robotic phrasing./g" "$agent_dir/SOUL.md"
         sed -i "s/{{USER_NAME}}/(Add your name)/g" "$agent_dir/USER.md"
         sed -i "s/{{TIMEZONE}}/(Add your timezone)/g" "$agent_dir/USER.md"
         sed -i "s/{{COMMUNICATION_STYLE}}/Be warm, natural, and clear. Use occasional relevant emojis (1-2 max) and avoid robotic phrasing./g" "$agent_dir/USER.md"
     fi
-    
+
     log_success "Created agent: $agent"
     log_info "  Config file: $env_file"
     log_info "  Agent directory: $agent_dir/"
@@ -391,33 +391,33 @@ remove_agent() {
     local agent="$1"
     local agent_dir="$AGENTS_DIR/${agent}"
     local env_file="${agent_dir}/.env"
-    
+
     if [[ ! -f "$env_file" ]]; then
         log_error "Agent '$agent' not found"
         exit 1
     fi
-    
+
     log_warn "WARNING: This will stop the agent and DELETE all its data!"
     log_warn "Volumes to be removed:"
     log_warn "  - $(compose_project_name "$agent")_data"
     log_warn "  - $(compose_project_name "$agent")_tailscale"
     echo ""
     read -p "Are you sure? Type 'yes' to confirm: " confirm
-    
+
     if [[ "$confirm" != "yes" ]]; then
         log_info "Cancelled"
         exit 0
     fi
-    
+
     # Stop if running
     compose_agent "$agent" down --volumes 2>/dev/null || true
-    
+
     # Remove agent directory (contains .env and all identity files)
     if [[ -d "$agent_dir" ]]; then
         log_warn "Removing agent directory: $agent_dir"
         rm -rf "$agent_dir"
     fi
-    
+
     log_success "Agent '$agent' removed"
     log_info "Note: Agent service is generic in $COMPOSE_FILE (no per-agent entry needed)"
 }
@@ -425,7 +425,7 @@ remove_agent() {
 # Main command dispatcher
 main() {
     local command="${1:-help}"
-    
+
     case "$command" in
         list)
             list_agents
@@ -531,7 +531,7 @@ Commands:
 Built-in Agents:
   handy                   DevOps specialist (Tailscale access)
   gordon                  Code review specialist (Tailscale access)
-  zoe                     Creative writing specialist (Tailscale access)
+  giles                     Creative writing specialist (Tailscale access)
   dwayne                  CCTV security specialist (Tailscale access)
 
 Examples:

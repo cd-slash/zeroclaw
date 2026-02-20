@@ -28,7 +28,7 @@
 # Usage:
 #   docker compose -f docker-compose.agents.yml --profile handy up -d
 #   docker compose -f docker-compose.agents.yml --profile gordon up -d
-#   docker compose -f docker-compose.agents.yml --profile zoe up -d
+#   docker compose -f docker-compose.agents.yml --profile giles up -d
 #   docker compose -f docker-compose.agents.yml --profile dwayne up -d
 #
 # Or create new agents:
@@ -62,7 +62,7 @@ services:
   # Pre-configured Agents
   # ============================================================================
   # Each agent has:
-  #   - A profile name (handy, gordon, zoe, dwayne)
+  #   - A profile name (handy, gordon, giles, dwayne)
   #   - Internal gateway on :3000 (accessed via per-agent Tailscale domain)
   #   - A bind mount for the agent's config directory
   #
@@ -85,7 +85,7 @@ services:
   #   #   context: .
   #   #   dockerfile: .agents/myagent/Dockerfile
   # ============================================================================
-  
+
   handy:
     <<: *agent-base
     build:
@@ -109,7 +109,15 @@ services:
         source: ./.agents/handy
         target: /agent-config
         read_only: true
-    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+    command:
+      [
+        "start-agent-with-litestream.sh",
+        "gateway",
+        "--port",
+        "3000",
+        "--host",
+        "[::]",
+      ]
 
   gordon:
     <<: *agent-base
@@ -134,19 +142,27 @@ services:
         source: ./.agents/gordon
         target: /agent-config
         read_only: true
-    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+    command:
+      [
+        "start-agent-with-litestream.sh",
+        "gateway",
+        "--port",
+        "3000",
+        "--host",
+        "[::]",
+      ]
 
-  zoe:
+  giles:
     <<: *agent-base
     build:
       context: .
       target: dev
       args:
-        AGENT_NAME: zoe
-    profiles: [zoe]
+        AGENT_NAME: giles
+    profiles: [giles]
     env_file:
       - .agents/.shared.env
-      - .agents/zoe/.env
+      - .agents/giles/.env
     environment:
       - ZEROCLAW_GATEWAY_PORT=3000
       - ZEROCLAW_LITESTREAM_ENABLED=true
@@ -156,10 +172,18 @@ services:
       - data:/zeroclaw-data
       - tailscale:/var/lib/tailscale
       - type: bind
-        source: ./.agents/zoe
+        source: ./.agents/giles
         target: /agent-config
         read_only: true
-    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+    command:
+      [
+        "start-agent-with-litestream.sh",
+        "gateway",
+        "--port",
+        "3000",
+        "--host",
+        "[::]",
+      ]
 
   dwayne:
     <<: *agent-base
@@ -186,10 +210,18 @@ services:
         read_only: true
       # Optional: mount agent-specific tools/scripts
       - type: bind
-        source: ./.agents/zoe/tools
+        source: ./.agents/giles/tools
         target: /usr/local/bin/agent-tools
         read_only: true
-    command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
+    command:
+      [
+        "start-agent-with-litestream.sh",
+        "gateway",
+        "--port",
+        "3000",
+        "--host",
+        "[::]",
+      ]
 
 volumes:
   # Anonymous volumes - Docker Compose creates isolated ones per profile

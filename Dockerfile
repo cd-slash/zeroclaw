@@ -121,10 +121,13 @@ RUN chmod +x /usr/local/bin/start-agent-with-litestream.sh
 COPY agent-setup.sh /usr/local/bin/agent-setup.sh
 RUN chmod +x /usr/local/bin/agent-setup.sh
 
+# Copy agent-specific scaffold files into image at build time.
+COPY .agents/${AGENT_NAME}/ /agent-config/
+
 # Copy agent-specific resolved artifacts into image at build time.
 # These files are generated from .agents/<agent>/tools.toml by scripts/resolve-agent-tools.sh.
 RUN mkdir -p /tmp/agent-build-tools /usr/local/bin/agent-tools
-COPY --from=builder /app/.agents/${AGENT_NAME}/.build-tools/ /tmp/agent-build-tools/
+COPY .agents/${AGENT_NAME}/.build-tools/ /tmp/agent-build-tools/
 
 # Install agent-specific APT packages declared in tools.toml [apt].packages
 RUN if [ -s /tmp/agent-build-tools/apt-packages.txt ]; then \
@@ -152,6 +155,7 @@ ENV PATH="/opt/bun/bin:/usr/local/bin/agent-tools:${PATH}"
 # Use consistent workspace path
 ENV ZEROCLAW_WORKSPACE=/zeroclaw-data/workspace
 ENV HOME=/zeroclaw-data
+ENV AGENT_CONFIG_DIR=/agent-config
 # Defaults for local dev (Ollama) - matches config.template.toml
 ENV PROVIDER="ollama"
 ENV ZEROCLAW_MODEL="llama3.2"

@@ -38,8 +38,8 @@ docker compose -f docker-compose.agents.yml --profile handy up -d
 # Start gordon  
 docker compose -f docker-compose.agents.yml --profile gordon up -d
 
-# Start zoe
-docker compose -f docker-compose.agents.yml --profile zoe up -d
+# Start giles
+docker compose -f docker-compose.agents.yml --profile giles up -d
 ```
 
 That's it! No environment variables. No container_name. No variable substitution.
@@ -111,19 +111,19 @@ docker compose -f docker-compose.agents.yml build
 # Start multiple agents
 docker compose -f docker-compose.agents.yml --profile handy up -d
 docker compose -f docker-compose.agents.yml --profile gordon up -d
-docker compose -f docker-compose.agents.yml --profile zoe up -d
+docker compose -f docker-compose.agents.yml --profile giles up -d
 
 # Check containers
 docker ps | grep zeroclaw
 # zeroclaw-handy-server-1
 # zeroclaw-gordon-server-1  
-# zeroclaw-zoe-server-1
+# zeroclaw-giles-server-1
 
 # Check volumes
 docker volume ls | grep zeroclaw
 # zeroclaw_handy_data
 # zeroclaw_gordon_data
-# zeroclaw_zoe_data
+# zeroclaw_giles_data
 
 # Logs
 docker compose -f docker-compose.agents.yml --profile handy logs -f

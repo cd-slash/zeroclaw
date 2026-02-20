@@ -32,11 +32,11 @@ nano .agents/.shared.env
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Host Machine                                 │
 │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐       │
-│  │     handy      │  │     gordon     │  │      zoe       │       │
+│  │     handy      │  │     gordon     │  │      giles       │       │
 │  │  tailscale     │  │  tailscale     │  │   tailscale    │       │
 │  │                │  │                │  │                │       │
-│  │ .handy.env     │  │ .gordon.env    │  │  .zoe.env      │       │
-│  │ .handy/        │  │ .gordon/       │  │  .zoe/         │       │
+│  │ .handy.env     │  │ .gordon.env    │  │  .giles.env      │       │
+│  │ .handy/        │  │ .gordon/       │  │  .giles/         │       │
 │  │ ├── IDENTITY.md│  │ ├── IDENTITY.md│  │  ├── IDENTITY.md│      │
 │  │ ├── SOUL.md    │  │ ├── SOUL.md    │  │  ├── SOUL.md    │      │
 │  │ ├── AGENTS.md  │  │ ├── AGENTS.md  │  │  ├── AGENTS.md  │      │
@@ -73,8 +73,8 @@ Each agent has:
 ├── .gordon.env             # Code agent config (HIDDEN FILE)
 ├── .gordon/                # Code agent identity
 │   └── ...
-├── .zoe.env                # Creative agent config (HIDDEN FILE)
-├── .zoe/                   # Creative agent identity
+├── .giles.env                # Creative agent config (HIDDEN FILE)
+├── .giles/                   # Creative agent identity
 │   └── ...
 ├── .dwayne.env             # Security agent config (HIDDEN FILE)
 ├── .dwayne/                # Security agent identity
@@ -98,7 +98,7 @@ scripts/agent.sh             # Management CLI
 |--------|-----------|---------------|-------------------|--------------------------------|
 | handy  | DevOps    | Tailscale     | `.handy.env`      | Infrastructure, CI/CD, shell   |
 | gordon | Code      | Tailscale     | `.gordon.env`     | Code review, refactoring       |
-| zoe    | Creative  | Tailscale     | `.zoe.env`        | Writing, documentation         |
+| giles    | Creative  | Tailscale     | `.giles.env`        | Writing, documentation         |
 | dwayne | Security  | Tailscale     | `.dwayne.env`     | CCTV monitoring and alert triage |
 
 ### Agent Configuration Files
@@ -367,10 +367,10 @@ Each agent gets completely isolated storage:
 Docker Volumes:
 ├── zeroclaw-data-handy       → /zeroclaw-data (container)
 ├── zeroclaw-data-gordon      → /zeroclaw-data (container)
-├── zeroclaw-data-zoe         → /zeroclaw-data (container)
+├── zeroclaw-data-giles         → /zeroclaw-data (container)
 ├── tailscale-data-handy      → /var/lib/tailscale (container)
 ├── tailscale-data-gordon     → /var/lib/tailscale (container)
-└── tailscale-data-zoe        → /var/lib/tailscale (container)
+└── tailscale-data-giles        → /var/lib/tailscale (container)
 ```
 
 This prevents:
@@ -430,7 +430,7 @@ Agents use three memory tools:
 1. **Agent-specific memories:** Each agent should only store what it needs
    - Handy: Infrastructure decisions, deployment notes
    - Gordon: Code patterns, review conventions
-   - Zoe: Writing style, content preferences
+   - Giles: Writing style, content preferences
 
 2. **Cross-agent coordination:** If agents need shared context:
    - Use shared files in the project workspace (not in .zeroclaw dir)

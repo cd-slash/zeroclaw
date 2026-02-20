@@ -37,7 +37,7 @@ This directory contains environment configurations and identity templates for in
 ├── gordon/                 # Code agent directory
 │   ├── .env
 │   └── ...
-├── zoe/                    # Creative agent directory
+├── giles/                    # Creative agent directory
 │   ├── .env
 │   └── ...
 ├── dwayne/                 # Security agent directory
@@ -105,7 +105,7 @@ Settings are loaded in this order (later overrides earlier):
 |--------|------------------------|-----------|------------------|
 | handy  | DevOps/Infrastructure  | Tailscale | `handy/`         |
 | gordon | Code Review            | Tailscale | `gordon/`        |
-| zoe    | Creative Writing       | Tailscale | `zoe/`           |
+| giles    | Creative Writing       | Tailscale | `giles/`           |
 | dwayne | CCTV Security          | Tailscale | `dwayne/`        |
 
 ## Identity Files
@@ -246,8 +246,8 @@ See docker-compose.agents.yml comments for the custom Dockerfile approach if nee
 ## Important Files
 
 - **.shared.env** - Put your API key here (ignored by git)
-- **handy/.env**, **gordon/.env**, **zoe/.env**, **dwayne/.env** - Agent configurations (HIDDEN)
-- **handy/**, **gordon/**, **zoe/**, **dwayne/** - Agent directories (config + identity + tools)
+- **handy/.env**, **gordon/.env**, **giles/.env**, **dwayne/.env** - Agent configurations (HIDDEN)
+- **handy/**, **gordon/**, **giles/**, **dwayne/** - Agent directories (config + identity + tools)
 - **docker-compose.agents.yml** - Service definitions
 - **../scripts/agent.sh** - Management CLI
 - **../docs/multi-agent-setup.md** - Full documentation

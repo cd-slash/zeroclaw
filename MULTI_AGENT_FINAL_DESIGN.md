@@ -22,7 +22,7 @@ An **ultra-simple, scalable multi-agent system** for ZeroClaw where Docker Compo
 .agents/
 ├── .handy.env           # Agent configuration
 ├── .gordon.env
-├── .zoe.env
+├── .giles.env
 ├── .shared.env          # Shared credentials
 ├── .handy/              # Agent identity files
 │   ├── IDENTITY.md
@@ -32,7 +32,7 @@ An **ultra-simple, scalable multi-agent system** for ZeroClaw where Docker Compo
 │   ├── TOOLS.md
 │   └── MEMORY.md
 ├── .gordon/
-└── .zoe/
+└── .giles/
 ```
 
 ### Docker Compose Pattern
@@ -116,7 +116,7 @@ zeroclaw-backups/
 ├── litestream/           # Continuous DB streaming
 │   ├── handy/
 │   ├── gordon/
-│   └── zoe/
+│   └── giles/
 └── self-backups/         # Full workspace backups
     ├── self-backup-20250115-143022.tar.gz
     └── ...

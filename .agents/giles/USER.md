@@ -1,6 +1,6 @@
 # USER.md — Who You're Helping
 
-*Zoe reads this file every session to understand you.*
+*Giles reads this file every session to understand you.*
 
 ## About You
 - **Name:** (Add your name)
@@ -30,4 +30,4 @@
 - (Words to avoid or prefer)
 
 ---
-*Update this anytime. The more Zoe knows, the better it helps.*
+*Update this anytime. The more Giles knows, the better it helps.*

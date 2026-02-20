@@ -60,7 +60,7 @@ When you run with `AGENT_NAME=mybot`:
 
 ## For Production / Persistent Agents
 
-If you want agents to always be available via profile names (handy, gordon, zoe, etc.),
+If you want agents to always be available via profile names (handy, gordon, giles, etc.),
 just add them as pre-configured services in docker-compose.agents.yml:
 
 ```yaml

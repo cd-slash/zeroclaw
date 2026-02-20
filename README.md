@@ -397,7 +397,7 @@ Run multiple specialized agents, each in isolated Docker containers with their o
 # Start the built-in agents
 ./scripts/agent.sh start handy    # DevOps specialist
 ./scripts/agent.sh start gordon   # Code reviewer
-./scripts/agent.sh start zoe      # Creative writer
+./scripts/agent.sh start giles      # Creative writer
 
 # List all agents and their status
 ./scripts/agent.sh list

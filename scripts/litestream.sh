@@ -80,7 +80,7 @@ check_agent() {
 # Check Litestream status for an agent
 status() {
     local agent="${1:-}"
-    
+
     if [[ -z "$agent" ]]; then
         # Show status for all agents
         log_info "Checking Litestream status for all agents..."
@@ -93,9 +93,9 @@ status() {
         done < <(list_agents)
         return
     fi
-    
+
     check_agent "$agent"
-    
+
     log_info "Litestream status for agent: $agent"
     check_litestream_status "$agent"
 }
@@ -103,29 +103,29 @@ status() {
 # Helper function to check Litestream inside container
 check_litestream_status() {
     local agent="$1"
-    
+
     # Check if agent container is running
     if ! compose_agent "$agent" ps --status running --services | grep -qx "server"; then
         log_warn "Agent '$agent' is not running"
         return 1
     fi
-    
+
     # Check if Litestream is enabled
     local litestream_enabled
     litestream_enabled=$(compose_agent "$agent" exec -T server \
         printenv ZEROCLAW_LITESTREAM_ENABLED 2>/dev/null || echo "false")
-    
+
     if [[ "$litestream_enabled" != "true" ]]; then
         log_warn "Litestream is not enabled for agent '$agent'"
         log_info "Set ZEROCLAW_LITESTREAM_ENABLED=true in .agents/${agent}/.env"
         return 1
     fi
-    
+
     # Check if Litestream process is running inside container
     if compose_agent "$agent" exec -T server \
         pgrep -x litestream > /dev/null 2>&1; then
         log_success "Litestream process is running inside agent container"
-        
+
         # Show recent logs from Litestream
         log_info "Recent replication activity:"
         compose_agent "$agent" exec -T server \
@@ -142,54 +142,54 @@ check_litestream_status() {
 restore() {
     local agent="$1"
     local restore_time="${2:-latest}"
-    
+
     check_agent "$agent"
-    
+
     log_warn "WARNING: This will restore the database for agent '$agent'"
     log_warn "Current database will be replaced. Ensure agent is stopped first."
-    
+
     # Check if agent is running
     if compose_agent "$agent" ps --status running --services | grep -qx "server"; then
         log_error "Agent '$agent' is still running. Stop it first:"
         log_info "  ./scripts/agent.sh stop $agent"
         exit 1
     fi
-    
+
     # Load MinIO credentials from agent env
     local minio_endpoint
     local minio_bucket
     local minio_access
     local minio_secret
-    
+
     # Source the agent env file
     set -a
     source "$PROJECT_DIR/.agents/${agent}/.env"
     set +a
-    
+
     minio_endpoint="${MINIO_ENDPOINT:-}"
     minio_bucket="${MINIO_BUCKET:-zeroclaw-backups}"
     minio_access="${MINIO_ACCESS_KEY:-}"
     minio_secret="${MINIO_SECRET_KEY:-}"
-    
+
     if [[ -z "$minio_endpoint" || -z "$minio_access" || -z "$minio_secret" ]]; then
         log_error "MinIO credentials not configured for agent '$agent'"
         exit 1
     fi
-    
+
     log_info "Restoring from Litestream..."
     log_info "  Agent: $agent"
     log_info "  Restore point: $restore_time"
     log_info "  Source: $minio_endpoint/$minio_bucket"
-    
+
     read -p "Continue? (y/N): " confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         log_info "Cancelled"
         exit 0
     fi
-    
+
     # Get volume name
     local volume_name="$(compose_project_name "$agent")_data"
-    
+
     # Create temporary restore container with Litestream
     docker run --rm \
         -v "${volume_name}:/restore-data" \
@@ -202,7 +202,7 @@ restore() {
         -timestamp "$restore_time" \
         "s3://${minio_bucket}/litestream/${agent}/memory.db" \
         -endpoint "$minio_endpoint"
-    
+
     log_success "Database restored successfully"
     log_info "Start the agent: ./scripts/agent.sh start $agent"
 }
@@ -211,7 +211,7 @@ restore() {
 logs() {
     local agent="${1:-}"
     shift 2>/dev/null || true
-    
+
     if [[ -n "$agent" ]]; then
         check_agent "$agent"
         # Get logs from inside the agent container
@@ -235,11 +235,11 @@ logs() {
 # Create manual snapshot via Litestream
 snapshot() {
     local agent="$1"
-    
+
     check_agent "$agent"
-    
+
     log_info "Creating manual snapshot for agent: $agent"
-    
+
     # Trigger snapshot inside the agent container
     compose_agent "$agent" exec server \
         litestream snapshot \
@@ -249,14 +249,14 @@ snapshot() {
             log_error "Failed to create snapshot. Is Litestream running?"
             exit 1
         }
-    
+
     log_success "Snapshot created successfully"
 }
 
 # Main dispatcher
 main() {
     local command="${1:-help}"
-    
+
     case "$command" in
         status)
             status "${2:-}"
@@ -300,7 +300,7 @@ Commands:
 Examples:
   ./scripts/litestream.sh status handy
   ./scripts/litestream.sh restore gordon
-  ./scripts/litestream.sh restore zoe "2025-01-15 14:30:00"
+  ./scripts/litestream.sh restore giles "2025-01-15 14:30:00"
   ./scripts/litestream.sh logs handy -f
 
 Architecture:

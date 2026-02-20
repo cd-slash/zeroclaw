@@ -104,7 +104,7 @@ MinIO Bucket: zeroclaw-backups
 ├── litestream/           # Continuous DB streaming (~95% space savings)
 │   ├── handy/
 │   ├── gordon/
-│   └── zoe/
+│   └── giles/
 └── self-backups/         # Full workspace backups from backup_workspace
     ├── self-backup-20250115-143022.tar.gz
     ├── self-backup-20250116-091530.tar.gz
