@@ -105,7 +105,7 @@ zeroclaw-backups (shared bucket)
 ├── litestream/
 │   ├── handy/          # Continuous DB streaming
 │   ├── gordon/         # (WAL files, ~95% space savings)
-│   └── zoe/
+│   └── giles/
 └── self-backups/
     ├── self-backup-20250115-143022.tar.gz  # From handy
     ├── self-backup-20250116-091530.tar.gz  # From gordon
@@ -158,7 +158,7 @@ Already have agents running? Add the config mount:
    ```bash
    ./scripts/agent.sh restart handy
    ./scripts/agent.sh restart gordon
-   ./scripts/agent.sh restart zoe
+   ./scripts/agent.sh restart giles
    ```
 
 4. **Test backup**:

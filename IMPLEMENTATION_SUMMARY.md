@@ -7,9 +7,9 @@ This document summarizes the multi-agent infrastructure that has been implemente
 ### 1. Multi-Agent Container System
 
 **Architecture:**
-- 3 specialized agents (handy, gordon, zoe) with isolated storage
-- Hidden `.env` files for secrets (`.handy.env`, `.gordon.env`, `.zoe.env`)
-- Identity directories (`.handy/`, `.gordon/`, `.zoe/`) with personality files
+- 3 specialized agents (handy, gordon, giles) with isolated storage
+- Hidden `.env` files for secrets (`.handy.env`, `.gordon.env`, `.giles.env`)
+- Identity directories (`.handy/`, `.gordon/`, `.giles/`) with personality files
 - Each agent on separate port (3000, 3001, 3002)
 - Complete data isolation via Docker volumes
 
@@ -91,7 +91,7 @@ zeroclaw/
 │   │   ├── MEMORY.md           # Memory template
 │   │   └── skills/
 │   ├── .gordon.env/.gordon/    # Similar structure
-│   ├── .zoe.env/.zoe/          # Similar structure
+│   ├── .giles.env/.giles/          # Similar structure
 │   ├── .shared.env             # Common settings
 │   ├── minio.env.example       # MinIO config template
 │   ├── litestream.template.yml # Litestream config template

@@ -140,7 +140,7 @@ docker run --rm --network host minio/mc:latest \
 
 **2. Update ZeroClaw agent configurations:**
 
-Edit `.agents/.handy.env` (and `.gordon.env`, `.zoe.env`):
+Edit `.agents/.handy.env` (and `.gordon.env`, `.giles.env`):
 
 ```bash
 # Update MinIO endpoint to point to standalone service
@@ -164,12 +164,12 @@ cd /home/cd-slash/devel/zeroclaw
 # Stop agents
 ./scripts/agent.sh stop handy
 ./scripts/agent.sh stop gordon
-./scripts/agent.sh stop zoe
+./scripts/agent.sh stop giles
 
 # Start agents (will now use standalone MinIO)
 ./scripts/agent.sh start handy
 ./scripts/agent.sh start gordon
-./scripts/agent.sh start zoe
+./scripts/agent.sh start giles
 ```
 
 **4. Verify Litestream is working:**

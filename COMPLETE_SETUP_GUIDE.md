@@ -177,7 +177,7 @@ ZEROCLAW_SQLITE_WAL_MODE=true
 **Repeat for other agents:**
 ```bash
 nano .agents/.gordon.env
-nano .agents/.zoe.env
+nano .agents/.giles.env
 # Update the MINIO_ENDPOINT in each
 ```
 
@@ -385,7 +385,7 @@ open https://minio.minio.your-hostname.your-tailnet.ts.net:9001
 ├── .agents/
 │   ├── .handy.env          # Agent config with MinIO endpoint
 │   ├── .gordon.env         # Agent config with MinIO endpoint
-│   ├── .zoe.env            # Agent config with MinIO endpoint
+│   ├── .giles.env            # Agent config with MinIO endpoint
 │   └── litestream.yml      # Litestream config (copied from template)
 ├── docker-compose.agents.yml  # Agents + Litestream sidecars
 └── docs/

@@ -127,7 +127,7 @@ Expected behavior:
 1. **User customization:** Edit `.agents/.handy/USER.md` with your details
 2. **Infrastructure notes:** Add your SSH hosts, clusters to `.agents/.handy/TOOLS.md`
 3. **Test the backup system:** Run the commands above
-4. **Create other agents:** Use `./agent.sh create gordon` and `./agent.sh create zoe`
+4. **Create other agents:** Use `./agent.sh create gordon` and `./agent.sh create giles`
 5. **Start using Handy:** Ask it to coordinate tasks for you
 
 ## All Documentation
@@ -143,10 +143,10 @@ Expected behavior:
 
 ```bash
 # Build all agents
-./agent.sh build handy gordon zoe
+./agent.sh build handy gordon giles
 
 # Start all agents
-./agent.sh start handy gordon zoe
+./agent.sh start handy gordon giles
 
 # Check all agent statuses
 ./agent.sh status

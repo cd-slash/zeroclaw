@@ -14,9 +14,10 @@ services:
     build:
       context: .
       target: dev
-    # Container name and hostname are aligned via HOSTNAME env var
-    container_name: ${HOSTNAME:-zeroclaw}
-    hostname: ${HOSTNAME:-zeroclaw}
+      args:
+        AGENT_NAME: ${AGENT_NAME:-_default}
+    # Match runtime hostname to the agent's Tailscale hostname setting.
+    hostname: ${TAILSCALE_HOSTNAME:-${AGENT_NAME:-zeroclaw}}
     restart: unless-stopped
 
     env_file:
@@ -63,5 +64,5 @@ services:
     command: ["start-agent-with-litestream.sh", "gateway", "--port", "3000", "--host", "[::]"]
 
 volumes:
-  data:
-  tailscale:
+  zeroclaw-data:
+  tailscale-data:

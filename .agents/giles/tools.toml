@@ -1,10 +1,10 @@
-# Tool declarations for zoe image builds.
-# Resolve with: ./scripts/resolve-agent-tools.sh zoe
+# Tool declarations for Giles image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh Giles
 
 [[tool]]
 name = "paperless-ngx-cli"
 source = "path"
-path = ".agents/zoe/tools/pngx"
+path = ".agents/giles/tools/pngx"
 binary = "pngx"
 description = "Paperless-ngx command-line client for search, upload, and document automation."
 

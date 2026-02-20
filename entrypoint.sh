@@ -113,14 +113,19 @@ explicit_sync() {
         echo "[entrypoint]   provider: $PROVIDER"
     fi
     
-    if [ -n "$API_KEY" ]; then
-        local current=$(grep "^api_key = " "$CONFIG_FILE" 2>/dev/null | cut -d'"' -f2 || echo "")
-        if [ -n "$current" ] && [[ "$current" == http* ]]; then
-            echo "[entrypoint]   api_key: keeping ollama URL"
-        else
-            local escaped=$(escape_sed "$API_KEY")
+    local effective_api_key="${ZEROCLAW_API_KEY:-${API_KEY:-}}"
+    if [ -n "$effective_api_key" ]; then
+        local escaped=$(escape_sed "$effective_api_key")
+        if grep -q "^api_key = " "$CONFIG_FILE"; then
             sed -i "s#^api_key = .*#api_key = \"$escaped\"#" "$CONFIG_FILE"
-            echo "[entrypoint]   api_key: updated"
+        else
+            printf '\napi_key = "%s"\n' "$effective_api_key" >> "$CONFIG_FILE"
+        fi
+        echo "[entrypoint]   api_key: updated from env"
+    else
+        if grep -q "^api_key = " "$CONFIG_FILE"; then
+            sed -i '/^api_key = /d' "$CONFIG_FILE"
+            echo "[entrypoint]   api_key: removed (not set in env)"
         fi
     fi
     

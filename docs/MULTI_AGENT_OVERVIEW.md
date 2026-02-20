@@ -9,11 +9,11 @@ This document provides a high-level overview of the ZeroClaw multi-agent contain
 │                           Host Machine                                       │
 │                                                                              │
 │  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐ │
-│  │    Agent: handy       │  │   Agent: gordon     │  │    Agent: zoe       │ │
+│  │    Agent: handy       │  │   Agent: gordon     │  │    Agent: giles       │ │
 │  │    Port: 3000         │  │   Port: 3001        │  │    Port: 3002       │ │
 │  │                       │  │                     │  │                     │ │
-│  │  .handy.env (hidden)  │  │ .gordon.env (hidden)│  │  .zoe.env (hidden)  │ │
-│  │  .handy/              │  │ .gordon/            │  │  .zoe/              │ │
+│  │  .handy.env (hidden)  │  │ .gordon.env (hidden)│  │  .giles.env (hidden)  │ │
+│  │  .handy/              │  │ .gordon/            │  │  .giles/              │ │
 │  │  ├── IDENTITY.md      │  │ ├── IDENTITY.md     │  │  ├── IDENTITY.md    │ │
 │  │  ├── SOUL.md          │  │ ├── SOUL.md         │  │  ├── SOUL.md        │ │
 │  │  ├── AGENTS.md        │  │ ├── AGENTS.md       │  │  ├── AGENTS.md      │ │
@@ -23,7 +23,7 @@ This document provides a high-level overview of the ZeroClaw multi-agent contain
 │  │  └── skills/          │  │ └── skills/         │  │  └── skills/        │ │
 │  │                       │  │                     │  │                     │ │
 │  │  Docker Volume:       │  │ Docker Volume:      │  │  Docker Volume:     │ │
-│  │  zeroclaw-data-handy  │  │ zeroclaw-data-gordon│  │  zeroclaw-data-zoe  │ │
+│  │  zeroclaw-data-handy  │  │ zeroclaw-data-gordon│  │  zeroclaw-data-giles  │ │
 │  │  ├─ memory.db         │  │ ├─ memory.db        │  │  ├─ memory.db       │ │
 │  │  ├─ config.toml       │  │ ├─ config.toml      │  │  ├─ config.toml     │ │
 │  │  └─ workspace/        │  │ └─ workspace/       │  │  └─ workspace/      │ │
@@ -62,7 +62,7 @@ This document provides a high-level overview of the ZeroClaw multi-agent contain
 **3 Agents included:**
 - `handy` - DevOps/Infrastructure (port 3000)
 - `gordon` - Code Review (port 3001)
-- `zoe` - Creative Writing (port 3002)
+- `giles` - Creative Writing (port 3002)
 
 ### 2. Agent Identity Directories (`.agent/`)
 
@@ -249,7 +249,7 @@ source .agents/.minio.env
 ./scripts/agent.sh start gordon
 
 # Start creative writer for documentation
-./scripts/agent.sh start zoe
+./scripts/agent.sh start giles
 
 # All agents run independently on different ports
 # Each has isolated memory and configuration
@@ -308,7 +308,7 @@ zeroclaw/
 │   ├── minio.env.example       # MinIO config template
 │   ├── .handy.env              # ← HIDDEN: handy config
 │   ├── .gordon.env             # ← HIDDEN: gordon config
-│   ├── .zoe.env                # ← HIDDEN: zoe config
+│   ├── .giles.env                # ← HIDDEN: giles config
 │   ├── .handy/                 # handy identity (commit OK)
 │   │   ├── IDENTITY.md
 │   │   ├── SOUL.md
@@ -318,7 +318,7 @@ zeroclaw/
 │   │   ├── MEMORY.md
 │   │   └── skills/
 │   ├── .gordon/                # gordon identity
-│   ├── .zoe/                   # zoe identity
+│   ├── .giles/                   # giles identity
 │   └── templates/              # Template files
 │       ├── IDENTITY.md.template
 │       ├── SOUL.md.template

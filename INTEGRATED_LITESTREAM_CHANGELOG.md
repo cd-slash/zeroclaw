@@ -65,7 +65,7 @@ Single Container
 **Removed:**
 - `litestream-handy` service
 - `litestream-gordon` service  
-- `litestream-zoe` service
+- `litestream-giles` service
 - Volume sharing between agent and sidecar
 
 **Changed:**
