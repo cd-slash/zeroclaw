@@ -164,8 +164,138 @@ update_config() {
     echo "[entrypoint] Config sync complete"
 }
 
+# Build JSON array from comma-separated usernames/IDs.
+build_json_array_from_csv() {
+    local csv="$1"
+    if [ -z "$csv" ]; then
+        printf '[]'
+        return 0
+    fi
+
+    printf '%s' "$csv" \
+        | tr ',' '\n' \
+        | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+        | sed '/^$/d' \
+        | jq -R . \
+        | jq -s .
+}
+
+# Build TOML array from comma-separated usernames/IDs.
+build_toml_array_from_csv() {
+    local csv="$1"
+    if [ -z "$csv" ]; then
+        printf '[]'
+        return 0
+    fi
+
+    local out=""
+    local item
+    while IFS= read -r item; do
+        item="$(printf '%s' "$item" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+        [ -z "$item" ] && continue
+        item="${item//\\/\\\\}"
+        item="${item//\"/\\\"}"
+        if [ -z "$out" ]; then
+            out="\"$item\""
+        else
+            out="$out, \"$item\""
+        fi
+    done < <(printf '%s\n' "$csv" | tr ',' '\n')
+
+    if [ -z "$out" ]; then
+        printf '[]'
+    else
+        printf '[%s]' "$out"
+    fi
+}
+
+remove_toml_section() {
+    local section="$1"
+    local tmp_file
+    tmp_file="$(mktemp)"
+    awk -v section="$section" '
+        BEGIN { skip = 0 }
+        {
+            if ($0 == section) {
+                skip = 1
+                next
+            }
+            if (skip && $0 ~ /^\[/) {
+                skip = 0
+            }
+            if (!skip) {
+                print
+            }
+        }
+    ' "$CONFIG_FILE" > "$tmp_file"
+    mv "$tmp_file" "$CONFIG_FILE"
+}
+
+ensure_config_permissions() {
+    if [ -f "$CONFIG_FILE" ]; then
+        chown zeroclaw:zeroclaw "$CONFIG_FILE" 2>/dev/null || true
+        chmod 600 "$CONFIG_FILE" 2>/dev/null || true
+    fi
+}
+
+# Auto-bootstrap Telegram channel from env when configured.
+bootstrap_telegram_channel() {
+    local bot_token="${ZEROCLAW_TELEGRAM_BOT_TOKEN:-${TELEGRAM_BOT_TOKEN:-}}"
+    local channel_name="${ZEROCLAW_TELEGRAM_CHANNEL_NAME:-${TELEGRAM_CHANNEL_NAME:-telegram}}"
+    local allowed_users_csv="${ZEROCLAW_TELEGRAM_ALLOWED_USERS:-${TELEGRAM_ALLOWED_USERS:-}}"
+    local allow_all="${ZEROCLAW_TELEGRAM_ALLOW_ALL:-${TELEGRAM_ALLOW_ALL:-false}}"
+
+    if [ -z "$bot_token" ]; then
+        return 0
+    fi
+
+    # Ensure [channels_config] exists and has cli=true.
+    if ! grep -q "^\[channels_config\]" "$CONFIG_FILE"; then
+        printf '\n[channels_config]\ncli = true\n' >> "$CONFIG_FILE"
+    elif ! sed -n '/^\[channels_config\]/,/^\[/p' "$CONFIG_FILE" | grep -q '^cli = '; then
+        sed -i '/^\[channels_config\]$/a cli = true' "$CONFIG_FILE"
+    fi
+
+    # Re-sync Telegram section from env on every boot to avoid stale allowlists.
+    if grep -q "^\[channels_config\.telegram\]" "$CONFIG_FILE"; then
+        remove_toml_section "[channels_config.telegram]"
+    fi
+
+    local allowed_users_json='[]'
+    local allowed_users_toml='[]'
+    if [ -n "$allowed_users_csv" ]; then
+        allowed_users_json="$(build_json_array_from_csv "$allowed_users_csv")"
+        allowed_users_toml="$(build_toml_array_from_csv "$allowed_users_csv")"
+    elif [ "$allow_all" = "true" ] || [ "$allow_all" = "1" ] || [ "$allow_all" = "yes" ] || [ "$allow_all" = "on" ]; then
+        allowed_users_json='["*"]'
+        allowed_users_toml='["*"]'
+    fi
+
+    local escaped_token
+    escaped_token="${bot_token//\\/\\\\}"
+    escaped_token="${escaped_token//\"/\\\"}"
+
+    {
+        printf '\n[channels_config.telegram]\n'
+        printf 'bot_token = "%s"\n' "$escaped_token"
+        printf 'allowed_users = %s\n' "$allowed_users_toml"
+        printf 'stream_mode = "off"\n'
+        printf 'draft_update_interval_ms = 1000\n'
+        printf 'interrupt_on_new_message = false\n'
+        printf 'mention_only = false\n'
+    } >> "$CONFIG_FILE"
+
+    if [ "$allowed_users_json" = '[]' ]; then
+        echo "[entrypoint] Telegram channel configured from env (warning: allowed_users is empty; bot will deny all until allowlist is configured)"
+    else
+        echo "[entrypoint] Telegram channel configured from env"
+    fi
+}
+
 # Run config update
 update_config
+bootstrap_telegram_channel
+ensure_config_permissions
 
 # Run agent-specific setup (packages, tools, etc.)
 # This happens once per container start, then is cached
