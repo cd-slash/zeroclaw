@@ -156,7 +156,7 @@ pub fn default_tools_with_runtime(
         Box::new(FileReadTool::new(security.clone())),
         Box::new(FileWriteTool::new(security.clone())),
         Box::new(FileEditTool::new(security.clone())),
-        Box::new(GlobSearchTool::new(security.clone())),
+        Box::new(GlobSearchTool::new(security)),
         Box::new(ContentSearchTool::new(security)),
     ]
 }
