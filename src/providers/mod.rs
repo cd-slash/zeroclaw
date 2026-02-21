@@ -27,6 +27,7 @@ pub mod openai_codex;
 pub mod openrouter;
 pub mod reliable;
 pub mod router;
+pub mod telnyx;
 pub mod traits;
 
 #[allow(unused_imports)]
@@ -853,6 +854,7 @@ fn resolve_provider_credential(name: &str, credential_override: Option<&str>) ->
         "sglang" => vec!["SGLANG_API_KEY"],
         "vllm" => vec!["VLLM_API_KEY"],
         "osaurus" => vec!["OSAURUS_API_KEY"],
+        "telnyx" => vec!["TELNYX_API_KEY"],
         _ => vec![],
     };
 
@@ -991,6 +993,7 @@ fn create_provider_with_url_and_options(
                 options.auth_profile_override.clone(),
             )))
         }
+        "telnyx" => Ok(Box::new(telnyx::TelnyxProvider::new(key))),
 
         // ── OpenAI-compatible providers ──────────────────────
         "venice" => Ok(Box::new(OpenAiCompatibleProvider::new(
@@ -1997,6 +2000,12 @@ mod tests {
         assert!(create_provider("gemini", None).is_ok());
     }
 
+    #[test]
+    fn factory_telnyx() {
+        assert!(create_provider("telnyx", Some("test-key")).is_ok());
+        assert!(create_provider("telnyx", None).is_ok());
+    }
+
     // ── OpenAI-compatible providers ──────────────────────────
 
     #[test]
@@ -2570,6 +2579,7 @@ mod tests {
             "sglang",
             "vllm",
             "osaurus",
+            "telnyx",
             "groq",
             "mistral",
             "xai",
