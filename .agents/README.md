@@ -105,8 +105,12 @@ Settings are loaded in this order (later overrides earlier):
 |--------|------------------------|-----------|------------------|
 | handy  | DevOps/Infrastructure  | Tailscale | `handy/`         |
 | gordon | Code Review            | Tailscale | `gordon/`        |
-| giles    | Creative Writing       | Tailscale | `giles/`           |
+| giles  | Creative Writing       | Tailscale | `giles/`         |
 | dwayne | CCTV Security          | Tailscale | `dwayne/`        |
+| david  | Career Coaching        | Tailscale | `david/`         |
+| kendall | Fitness Coaching       | Tailscale | `kendall/`       |
+| prime  | Coding Agent           | Tailscale | `prime/`         |
+| seldon | Household Assistant    | Tailscale | `seldon/`        |
 
 ## Identity Files
 
@@ -247,7 +251,9 @@ See docker-compose.agents.yml comments for the custom Dockerfile approach if nee
 
 - **.shared.env** - Put your API key here (ignored by git)
 - **handy/.env**, **gordon/.env**, **giles/.env**, **dwayne/.env** - Agent configurations (HIDDEN)
-- **handy/**, **gordon/**, **giles/**, **dwayne/** - Agent directories (config + identity + tools)
+- **david/.env**, **kendall/.env**, **prime/.env**, **seldon/.env** - Additional agent configurations (HIDDEN)
+- **handy/**, **gordon/**, **giles/**, **dwayne/** - Existing agent directories (config + identity + tools)
+- **david/**, **kendall/**, **prime/**, **seldon/** - New agent directories (config + identity + tools)
 - **docker-compose.agents.yml** - Service definitions
 - **../scripts/agent.sh** - Management CLI
 - **../docs/multi-agent-setup.md** - Full documentation

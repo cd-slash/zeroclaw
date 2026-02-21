@@ -1,0 +1,16 @@
+# Tool declarations for david image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh david
+
+# [[tool]]
+# name = "example-career-cli"
+# source = "path"
+# path = ".agents/david/tools/example-career-cli"
+# binary = "example-career-cli"
+# description = "Example career helper"
+# sha256 = ""
+
+# [apt]
+# packages = ["jq"]
+
+# [bun]
+# packages = ["typescript", "tsx"]

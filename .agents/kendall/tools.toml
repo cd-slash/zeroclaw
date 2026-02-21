@@ -1,0 +1,16 @@
+# Tool declarations for kendall image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh kendall
+
+# [[tool]]
+# name = "example-fitness-cli"
+# source = "path"
+# path = ".agents/kendall/tools/example-fitness-cli"
+# binary = "example-fitness-cli"
+# description = "Example fitness helper"
+# sha256 = ""
+
+# [apt]
+# packages = ["jq"]
+
+# [bun]
+# packages = ["typescript", "tsx"]

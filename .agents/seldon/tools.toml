@@ -1,0 +1,16 @@
+# Tool declarations for seldon image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh seldon
+
+# [[tool]]
+# name = "example-household-cli"
+# source = "path"
+# path = ".agents/seldon/tools/example-household-cli"
+# binary = "example-household-cli"
+# description = "Example household helper"
+# sha256 = ""
+
+# [apt]
+# packages = ["jq"]
+
+# [bun]
+# packages = ["typescript", "tsx"]

@@ -1,0 +1,16 @@
+# Tool declarations for prime image builds.
+# Resolve with: ./scripts/resolve-agent-tools.sh prime
+
+# [[tool]]
+# name = "example-dev-cli"
+# source = "path"
+# path = ".agents/prime/tools/example-dev-cli"
+# binary = "example-dev-cli"
+# description = "Example development helper"
+# sha256 = ""
+
+# [apt]
+# packages = ["jq", "ripgrep"]
+
+# [bun]
+# packages = ["typescript", "tsx"]

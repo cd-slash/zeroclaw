@@ -113,22 +113,6 @@ explicit_sync() {
         echo "[entrypoint]   provider: $PROVIDER"
     fi
     
-    local effective_api_key="${ZEROCLAW_API_KEY:-${API_KEY:-}}"
-    if [ -n "$effective_api_key" ]; then
-        local escaped=$(escape_sed "$effective_api_key")
-        if grep -q "^api_key = " "$CONFIG_FILE"; then
-            sed -i "s#^api_key = .*#api_key = \"$escaped\"#" "$CONFIG_FILE"
-        else
-            printf '\napi_key = "%s"\n' "$effective_api_key" >> "$CONFIG_FILE"
-        fi
-        echo "[entrypoint]   api_key: updated from env"
-    else
-        if grep -q "^api_key = " "$CONFIG_FILE"; then
-            sed -i '/^api_key = /d' "$CONFIG_FILE"
-            echo "[entrypoint]   api_key: removed (not set in env)"
-        fi
-    fi
-    
     local public_bind="${ZEROCLAW_ALLOW_PUBLIC_BIND:-${ALLOW_PUBLIC_BIND:-}}"
     if [ -n "$public_bind" ]; then
         # Remove any surrounding quotes from the value
@@ -233,8 +217,9 @@ remove_toml_section() {
 
 ensure_config_permissions() {
     if [ -f "$CONFIG_FILE" ]; then
-        chown zeroclaw:zeroclaw "$CONFIG_FILE" 2>/dev/null || true
-        chmod 600 "$CONFIG_FILE" 2>/dev/null || true
+        # Both zeroclaw (runtime) and docsd (managed-docs daemon) need read access.
+        chown zeroclaw:zeroclawdocs "$CONFIG_FILE" 2>/dev/null || true
+        chmod 640 "$CONFIG_FILE" 2>/dev/null || true
     fi
 }
 
