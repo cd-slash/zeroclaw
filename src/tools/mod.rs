@@ -30,6 +30,7 @@ pub mod delegate;
 pub mod docs_append;
 pub mod docs_read;
 pub mod docs_replace_section;
+pub mod file_edit;
 pub mod file_read;
 pub mod file_write;
 pub mod git_operations;
@@ -67,6 +68,7 @@ pub use delegate::DelegateTool;
 pub use docs_append::DocsAppendTool;
 pub use docs_read::DocsReadTool;
 pub use docs_replace_section::DocsReplaceSectionTool;
+pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use git_operations::GitOperationsTool;
@@ -201,25 +203,27 @@ pub fn all_tools_with_runtime(
     fallback_api_key: Option<&str>,
     root_config: &crate::config::Config,
 ) -> Vec<Box<dyn Tool>> {
-    let mut tools: Vec<Box<dyn Tool>> = vec![
-        Box::new(ShellTool::new(security.clone(), runtime)),
-        Box::new(FileReadTool::new(security.clone())),
-        Box::new(FileWriteTool::new(security.clone())),
-        Box::new(DocsReadTool::new(workspace_dir.to_path_buf())),
-        Box::new(DocsAppendTool::new(workspace_dir.to_path_buf())),
-        Box::new(DocsReplaceSectionTool::new(workspace_dir.to_path_buf())),
-        Box::new(CronAddTool::new(config.clone(), security.clone())),
-        Box::new(CronListTool::new(config.clone())),
-        Box::new(CronRemoveTool::new(config.clone())),
-        Box::new(CronUpdateTool::new(config.clone(), security.clone())),
-        Box::new(CronRunTool::new(config.clone())),
-        Box::new(CronRunsTool::new(config.clone())),
-        Box::new(MemoryStoreTool::new(memory.clone(), security.clone())),
-        Box::new(MemoryRecallTool::new(memory.clone())),
-        Box::new(MemoryForgetTool::new(memory, security.clone())),
-        Box::new(ScheduleTool::new(security.clone(), root_config.clone())),
-        Box::new(ProxyConfigTool::new(config.clone(), security.clone())),
-        Box::new(GitOperationsTool::new(
+    let mut tool_arcs: Vec<Arc<dyn Tool>> = vec![
+        Arc::new(ShellTool::new(security.clone(), runtime)),
+        Arc::new(FileReadTool::new(security.clone())),
+        Arc::new(FileWriteTool::new(security.clone())),
+        Arc::new(FileEditTool::new(security.clone())),
+        Arc::new(GlobSearchTool::new(security.clone())),
+        Arc::new(DocsReadTool::new(workspace_dir.to_path_buf())),
+        Arc::new(DocsAppendTool::new(workspace_dir.to_path_buf())),
+        Arc::new(DocsReplaceSectionTool::new(workspace_dir.to_path_buf())),
+        Arc::new(CronAddTool::new(config.clone(), security.clone())),
+        Arc::new(CronListTool::new(config.clone())),
+        Arc::new(CronRemoveTool::new(config.clone(), security.clone())),
+        Arc::new(CronUpdateTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunTool::new(config.clone(), security.clone())),
+        Arc::new(CronRunsTool::new(config.clone())),
+        Arc::new(MemoryStoreTool::new(memory.clone(), security.clone())),
+        Arc::new(MemoryRecallTool::new(memory.clone())),
+        Arc::new(MemoryForgetTool::new(memory, security.clone())),
+        Arc::new(ScheduleTool::new(security.clone(), root_config.clone())),
+        Arc::new(ProxyConfigTool::new(config.clone(), security.clone())),
+        Arc::new(GitOperationsTool::new(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
@@ -227,8 +231,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
-        Box::new(BackupTool::new(workspace_dir.to_path_buf())),
-        Box::new(SnapshotTool::new(workspace_dir.to_path_buf())),
+        Arc::new(BackupTool::new(workspace_dir.to_path_buf())),
+        Arc::new(SnapshotTool::new(workspace_dir.to_path_buf())),
     ];
 
     if browser_config.enabled {

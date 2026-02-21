@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod chunker;
+pub mod cli;
 pub mod docsd;
 pub mod docsd_client;
 pub mod embeddings;
