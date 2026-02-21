@@ -1747,9 +1747,7 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
                         .await?
                     {
                         Some(_) => {
-                            let profile_name = profile
-                                .as_deref()
-                                .unwrap_or("default");
+                            let profile_name = profile.as_deref().unwrap_or("default");
                             println!("✓ Gemini token refreshed successfully");
                             println!("  Profile: gemini:{}", profile_name);
                             Ok(())
@@ -1761,9 +1759,7 @@ async fn handle_auth_command(auth_command: AuthCommands, config: &Config) -> Res
                         }
                     }
                 }
-                _ => bail!(
-                    "`auth refresh` supports --provider openai-codex or gemini"
-                ),
+                _ => bail!("`auth refresh` supports --provider openai-codex or gemini"),
             }
         }
 
