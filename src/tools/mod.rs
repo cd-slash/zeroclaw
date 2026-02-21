@@ -31,6 +31,7 @@ pub mod delegate;
 pub mod docs_append;
 pub mod docs_read;
 pub mod docs_replace_section;
+pub mod file_edit;
 pub mod file_read;
 pub mod file_write;
 pub mod git_operations;
@@ -70,6 +71,7 @@ pub use delegate::DelegateTool;
 pub use docs_append::DocsAppendTool;
 pub use docs_read::DocsReadTool;
 pub use docs_replace_section::DocsReplaceSectionTool;
+pub use file_edit::FileEditTool;
 pub use file_read::FileReadTool;
 pub use file_write::FileWriteTool;
 pub use git_operations::GitOperationsTool;
@@ -239,8 +241,8 @@ pub fn all_tools_with_runtime(
             security.clone(),
             workspace_dir.to_path_buf(),
         )),
-        Box::new(BackupTool::new(workspace_dir.to_path_buf())),
-        Box::new(SnapshotTool::new(workspace_dir.to_path_buf())),
+        Arc::new(BackupTool::new(workspace_dir.to_path_buf())),
+        Arc::new(SnapshotTool::new(workspace_dir.to_path_buf())),
     ];
 
     if browser_config.enabled {
