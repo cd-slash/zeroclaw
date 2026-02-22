@@ -145,6 +145,7 @@ update_config() {
     echo "[entrypoint] Syncing config.toml from environment..."
     explicit_sync
     auto_sync_env_vars
+    apply_shell_env_passthrough
     echo "[entrypoint] Config sync complete"
 }
 
@@ -315,6 +316,18 @@ build_toml_array_from_csv() {
     else
         printf '[%s]' "$out"
     fi
+}
+
+apply_shell_env_passthrough() {
+    local csv="${ZEROCLAW_SHELL_ENV_PASSTHROUGH:-${SHELL_ENV_PASSTHROUGH:-}}"
+    if [ -z "$csv" ]; then
+        return 0
+    fi
+
+    local toml_value
+    toml_value="$(build_toml_array_from_csv "$csv")"
+    update_config_key_raw "shell_env_passthrough" "$toml_value" "autonomy"
+    echo "[entrypoint]   [autonomy] shell_env_passthrough = $toml_value"
 }
 
 remove_toml_section() {
