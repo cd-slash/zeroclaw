@@ -144,7 +144,8 @@ RUN if [ -s /tmp/agent-build-tools/bun-packages.txt ]; then \
       export BUN_INSTALL=/opt/bun && \
       curl -fsSL https://bun.sh/install | bash && \
       ln -sf /opt/bun/bin/bun /usr/local/bin/bun && \
-      xargs -r /usr/local/bin/bun add --global < /tmp/agent-build-tools/bun-packages.txt; \
+      xargs -r /usr/local/bin/bun add --global < /tmp/agent-build-tools/bun-packages.txt && \
+      if [ -x /opt/bun/bin/playwriter ]; then ln -sf /opt/bun/bin/playwriter /usr/local/bin/playwriter; fi; \
     fi
 
 # Optional agent-specific skill installs (via npm/npx).
