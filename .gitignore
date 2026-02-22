@@ -43,6 +43,7 @@ credentials.json
 .agents/*/skills/*
 !.agents/*/skills/.gitkeep
 !.agents/seldon/skills/calendar-sync/SKILL.md
+!.agents/seldon/skills/playwriter/SKILL.md
 .agents/*/tools/*
 !.agents/*/tools/.gitkeep
 !.agents/seldon/tools/vdirsyncer_oauth_setup.sh

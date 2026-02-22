@@ -40,8 +40,8 @@ Example:
 The shell tool can only execute allowlisted commands. Current allowlist:
 
 - `bash`, `bun`, `cargo`, `cat`, `date`, `echo`, `find`, `git`, `grep`, `head`, `ls`, `node`,
-  `npm`, `pwd`, `python`, `python3`, `pip`, `pip3`, `tail`, `vdirsyncer`,
-  `vdirsyncer-oauth-setup`, `wc`
+  `npm`, `pwd`, `playwriter`, `python`, `python3`, `pip`, `pip3`, `tail`,
+  `vdirsyncer`, `vdirsyncer-oauth-setup`, `wc`
 
 If a command is missing, add it to `.agents/seldon/config.override.toml` under
 `[autonomy].allowed_commands`, then rebuild the agent image.
@@ -79,6 +79,20 @@ OAuth flow:
 1. Run `vdirsyncer-oauth-setup` (uses `vdirsyncer discover`).
 2. Complete auth, token saved at `~/.config/vdirsyncer/google_token`.
 3. Run `vdirsyncer sync`.
+
+## Browser Control (Playwriter)
+
+Playwriter CLI is installed. To connect to a Chrome instance with the extension:
+
+```bash
+playwriter session new
+playwriter -s 1 -e "await page.goto('https://example.com')"
+```
+
+Set env vars if needed:
+
+- `PLAYWRITER_HOST` (defaults to `http://127.0.0.1:19988`)
+- `PLAYWRITER_TOKEN` (if server uses a token)
 
 ---
 *Add whatever helps Seldon run your household operations accurately.*

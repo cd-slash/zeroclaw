@@ -15,6 +15,7 @@ allowed_commands = [
   "node",
   "npm",
   "pwd",
+  "playwriter",
   "python3",
   "pip3",
   "pip",
