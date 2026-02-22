@@ -147,6 +147,11 @@ RUN if [ -s /tmp/agent-build-tools/bun-packages.txt ]; then \
       xargs -r /usr/local/bin/bun add --global < /tmp/agent-build-tools/bun-packages.txt; \
     fi
 
+# Optional agent-specific skill installs (via npm/npx).
+RUN if [ -f /agent-config/skills.install ]; then \
+      chmod +x /agent-config/skills.install && /agent-config/skills.install; \
+    fi
+
 RUN cp -a /tmp/agent-build-tools/. /usr/local/bin/agent-tools/ && \
     rm -f /usr/local/bin/agent-tools/apt-packages.txt /usr/local/bin/agent-tools/bun-packages.txt /usr/local/bin/agent-tools/.gitkeep
 RUN find /usr/local/bin/agent-tools -maxdepth 1 -type f ! -name ".*.tool" -exec chmod +x {} \; || true
