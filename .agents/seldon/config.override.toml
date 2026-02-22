@@ -1,0 +1,17 @@
+[autonomy]
+allowed_commands = [
+  "git",
+  "npm",
+  "cargo",
+  "ls",
+  "cat",
+  "grep",
+  "find",
+  "echo",
+  "pwd",
+  "wc",
+  "head",
+  "tail",
+  "date",
+  "vdirsyncer-oauth-setup"
+]

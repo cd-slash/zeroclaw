@@ -9,6 +9,14 @@
 # description = "Example household helper"
 # sha256 = ""
 
+[[tool]]
+name = "vdirsyncer-oauth-setup"
+source = "path"
+path = ".agents/seldon/tools/vdirsyncer_oauth_setup.sh"
+binary = "vdirsyncer-oauth-setup"
+description = "OAuth setup helper for vdirsyncer-proxy"
+sha256 = "97630b5c8a99151035141ae7fcd0fdc976785d4f4309b2eec75d10ac804fd067"
+
 # [apt]
 # packages = ["jq"]
 

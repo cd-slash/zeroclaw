@@ -148,6 +148,89 @@ update_config() {
     echo "[entrypoint] Config sync complete"
 }
 
+trim_whitespace() {
+    local value="$1"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    printf '%s' "$value"
+}
+
+ensure_section_exists() {
+    local section="$1"
+    if ! grep -q "^\[$section\]" "$CONFIG_FILE"; then
+        printf '\n[%s]\n' "$section" >> "$CONFIG_FILE"
+    fi
+}
+
+update_config_key_raw() {
+    local key="$1"
+    local value="$2"
+    local section="${3:-}"
+    local escaped_value
+    escaped_value="$(escape_sed "$value")"
+
+    if [ -n "$section" ]; then
+        ensure_section_exists "$section"
+        if sed -n "/^\[$section\]/,/^\[/p" "$CONFIG_FILE" | grep -q "^$key = "; then
+            sed -i "/^\[$section\]/,/^\[/ s#^$key = .*#$key = $escaped_value#" "$CONFIG_FILE"
+        else
+            sed -i "/^\[$section\]$/a $key = $escaped_value" "$CONFIG_FILE"
+        fi
+        return 0
+    fi
+
+    if grep -q "^$key = " "$CONFIG_FILE"; then
+        sed -i "s#^$key = .*#$key = $escaped_value#" "$CONFIG_FILE"
+        return 0
+    fi
+
+    printf '\n%s = %s\n' "$key" "$value" >> "$CONFIG_FILE"
+    return 0
+}
+
+seed_agent_config() {
+    if [ -n "${AGENT_CONFIG_DIR:-}" ] && [ -f "$AGENT_CONFIG_DIR/config.toml" ]; then
+        cp "$AGENT_CONFIG_DIR/config.toml" "$CONFIG_FILE"
+        echo "[entrypoint] Seeded config.toml from $AGENT_CONFIG_DIR"
+    fi
+}
+
+apply_agent_config_overrides() {
+    local override_file="${AGENT_CONFIG_DIR:-}/config.override.toml"
+    if [ ! -f "$override_file" ]; then
+        return 0
+    fi
+
+    echo "[entrypoint] Applying config overrides from $override_file"
+    local section=""
+    local line
+    while IFS= read -r line || [ -n "$line" ]; do
+        line="$(trim_whitespace "$line")"
+        [ -z "$line" ] && continue
+        case "$line" in
+            \#*|\;*)
+                continue
+                ;;
+            \[*\])
+                section="${line#[}"
+                section="${section%]}"
+                continue
+                ;;
+        esac
+
+        if [[ "$line" == *"="* ]]; then
+            local key
+            local value
+            key="${line%%=*}"
+            value="${line#*=}"
+            key="$(trim_whitespace "$key")"
+            value="$(trim_whitespace "$value")"
+            [ -z "$key" ] && continue
+            update_config_key_raw "$key" "$value" "$section"
+        fi
+    done < "$override_file"
+}
+
 # Build JSON array from comma-separated usernames/IDs.
 build_json_array_from_csv() {
     local csv="$1"
@@ -278,6 +361,8 @@ bootstrap_telegram_channel() {
 }
 
 # Run config update
+seed_agent_config
+apply_agent_config_overrides
 update_config
 bootstrap_telegram_channel
 ensure_config_permissions
