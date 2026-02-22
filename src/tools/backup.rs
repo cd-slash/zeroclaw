@@ -42,7 +42,7 @@ impl BackupTool {
         let output = if let Some(ref config) = config_dir {
             // Create backup including both workspace and config
             let workspace = self.workspace_dir.to_str().unwrap_or("/zeroclaw-data");
-            let config_path = config.to_str().unwrap_or("/agent-config");
+            let _config_path = config.to_str().unwrap_or("/agent-config");
             let config_parent = config
                 .parent()
                 .and_then(|p| p.to_str())
