@@ -15,11 +15,11 @@ source = "path"
 path = ".agents/seldon/tools/vdirsyncer_oauth_setup.sh"
 binary = "vdirsyncer-oauth-setup"
 description = "OAuth setup helper for vdirsyncer-proxy"
-sha256 = "97630b5c8a99151035141ae7fcd0fdc976785d4f4309b2eec75d10ac804fd067"
+sha256 = "6ce336e349dae6fd3a1cdc5d887968030b956fde3d41214bcd386a2ad51e4d85"
 
 # [apt]
 [apt]
-packages = ["vdirsyncer", "python3", "python3-pip", "nodejs", "npm"]
+packages = ["vdirsyncer", "python3", "python3-pip", "nodejs", "npm", "python3-caldav"]
 
 [bun]
 packages = ["typescript", "tsx"]

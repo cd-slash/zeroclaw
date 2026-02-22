@@ -17,6 +17,8 @@ allowed_commands = [
   "pwd",
   "python3",
   "pip3",
+  "pip",
+  "python",
   "tail",
   "vdirsyncer",
   "vdirsyncer-oauth-setup",

@@ -42,6 +42,7 @@ credentials.json
 # Ignore skills/tools directories (user-created content)
 .agents/*/skills/*
 !.agents/*/skills/.gitkeep
+!.agents/seldon/skills/calendar-sync/SKILL.md
 .agents/*/tools/*
 !.agents/*/tools/.gitkeep
 !.agents/seldon/tools/vdirsyncer_oauth_setup.sh

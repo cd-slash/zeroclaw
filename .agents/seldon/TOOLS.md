@@ -35,5 +35,50 @@ Example:
 - **memory_recall** - Search memory
   - Use when: checking prior outcomes and recurring issues
 
+## Command Allowlist (Seldon)
+
+The shell tool can only execute allowlisted commands. Current allowlist:
+
+- `bash`, `bun`, `cargo`, `cat`, `date`, `echo`, `find`, `git`, `grep`, `head`, `ls`, `node`,
+  `npm`, `pwd`, `python`, `python3`, `pip`, `pip3`, `tail`, `vdirsyncer`,
+  `vdirsyncer-oauth-setup`, `wc`
+
+If a command is missing, add it to `.agents/seldon/config.override.toml` under
+`[autonomy].allowed_commands`, then rebuild the agent image.
+
+## Calendar Sync (vdirsyncer + CalDAV)
+
+Template config (place at `~/.config/vdirsyncer/config` inside the container):
+
+```ini
+[general]
+status_path = "~/.config/vdirsyncer/status"
+
+[pair google_calendar]
+a = "google"
+b = "google_local"
+collections = null
+metadata = ["color", "displayname"]
+conflict_resolution = "b wins"
+
+[storage google]
+type = "google_calendar"
+token_file = "~/.config/vdirsyncer/google_token"
+client_id = "<google_oauth_client_id>"
+client_secret = "<google_oauth_client_secret>"
+
+[storage google_local]
+type = "caldav"
+url = "http://127.0.0.1:5232/"
+username = "zeroclaw"
+password = "<local_caldav_password>"
+```
+
+OAuth flow:
+
+1. Run `vdirsyncer-oauth-setup` (uses `vdirsyncer discover`).
+2. Complete auth, token saved at `~/.config/vdirsyncer/google_token`.
+3. Run `vdirsyncer sync`.
+
 ---
 *Add whatever helps Seldon run your household operations accurately.*
