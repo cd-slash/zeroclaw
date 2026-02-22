@@ -2,19 +2,12 @@
 # OAuth setup script for vdirsyncer + tailscale serve
 
 WORKSPACE_DIR="${ZEROCLAW_WORKSPACE:-/zeroclaw-data/workspace}"
-DISCOVER_SCRIPT="$WORKSPACE_DIR/vdirsyncer_discover.sh"
 
 echo "Starting OAuth setup..."
 
-if [ ! -f "$DISCOVER_SCRIPT" ]; then
-    echo "Missing $DISCOVER_SCRIPT"
-    echo "Place vdirsyncer_discover.sh in $WORKSPACE_DIR"
-    exit 1
-fi
-
 # Start vdirsyncer discover in background, capture output
 # Use the patched version that handles tailscale proxy
-cd "$WORKSPACE_DIR" && bash "$DISCOVER_SCRIPT" 2>&1 | tee /tmp/vdirsyncer.log &
+cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee /tmp/vdirsyncer.log &
 VDIRSYNCER_PID=$!
 
 echo "vdirsyncer PID: $VDIRSYNCER_PID"

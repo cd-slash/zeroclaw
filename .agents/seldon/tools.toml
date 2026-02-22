@@ -19,7 +19,7 @@ sha256 = "97630b5c8a99151035141ae7fcd0fdc976785d4f4309b2eec75d10ac804fd067"
 
 # [apt]
 [apt]
-packages = ["vdirsyncer"]
+packages = ["vdirsyncer", "python3", "python3-pip", "nodejs", "npm"]
 
-# [bun]
-# packages = ["typescript", "tsx"]
+[bun]
+packages = ["typescript", "tsx"]
