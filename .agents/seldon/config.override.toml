@@ -1,4 +1,5 @@
 [autonomy]
 level = "full"
 workspace_only = false
+forbidden_paths = []
 allowed_commands = ["bash", "bun", "cargo", "cat", "date", "echo", "find", "git", "grep", "head", "ls", "node", "npm", "pwd", "playwriter", "python3", "pip3", "pip", "python", "tail", "vdirsyncer", "vdirsyncer-oauth-setup", "wc"]

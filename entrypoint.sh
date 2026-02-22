@@ -225,6 +225,9 @@ apply_agent_config_overrides() {
     echo "[entrypoint] Applying config overrides from $override_file"
     local section=""
     local line
+    local in_array=0
+    local array_key=""
+    local array_value=""
     while IFS= read -r line || [ -n "$line" ]; do
         line="$(trim_whitespace "$line")"
         [ -z "$line" ] && continue
@@ -239,6 +242,17 @@ apply_agent_config_overrides() {
                 ;;
         esac
 
+        if [ "$in_array" -eq 1 ]; then
+            array_value+=" $line"
+            if [[ "$line" == *"]" ]]; then
+                update_config_key_raw "$array_key" "$array_value" "$section"
+                in_array=0
+                array_key=""
+                array_value=""
+            fi
+            continue
+        fi
+
         if [[ "$line" == *"="* ]]; then
             local key
             local value
@@ -247,6 +261,12 @@ apply_agent_config_overrides() {
             key="$(trim_whitespace "$key")"
             value="$(trim_whitespace "$value")"
             [ -z "$key" ] && continue
+            if [[ "$value" == "["* ]] && [[ "$value" != *"]" ]]; then
+                in_array=1
+                array_key="$key"
+                array_value="$value"
+                continue
+            fi
             update_config_key_raw "$key" "$value" "$section"
         fi
     done < "$override_file"
