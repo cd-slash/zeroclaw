@@ -1,27 +1,3 @@
 [autonomy]
 level = "full"
-allowed_commands = [
-  "bash",
-  "bun",
-  "cargo",
-  "cat",
-  "date",
-  "echo",
-  "find",
-  "git",
-  "grep",
-  "head",
-  "ls",
-  "node",
-  "npm",
-  "pwd",
-  "playwriter",
-  "python3",
-  "pip3",
-  "pip",
-  "python",
-  "tail",
-  "vdirsyncer",
-  "vdirsyncer-oauth-setup",
-  "wc"
-]
+allowed_commands = ["bash", "bun", "cargo", "cat", "date", "echo", "find", "git", "grep", "head", "ls", "node", "npm", "pwd", "playwriter", "python3", "pip3", "pip", "python", "tail", "vdirsyncer", "vdirsyncer-oauth-setup", "wc"]

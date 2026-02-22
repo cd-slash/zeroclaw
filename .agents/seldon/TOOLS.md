@@ -39,9 +39,9 @@ Example:
 
 The shell tool can only execute allowlisted commands. Current allowlist:
 
-- `bash`, `bun`, `cargo`, `cat`, `date`, `echo`, `find`, `git`, `grep`, `head`, `ls`, `node`,
-  `npm`, `pwd`, `playwriter`, `python`, `python3`, `pip`, `pip3`, `tail`,
-  `vdirsyncer`, `vdirsyncer-oauth-setup`, `wc`
+- `bash`, `bun`, `cargo`, `cat`, `date`, `echo`, `find`, `git`, `grep`, `head`, `ls`, `node`, `npm`,
+  `pwd`, `playwriter`, `python`, `python3`, `pip`, `pip3`, `tail`, `vdirsyncer`,
+  `vdirsyncer-oauth-setup`, `wc`
 
 If a command is missing, add it to `.agents/seldon/config.override.toml` under
 `[autonomy].allowed_commands`, then rebuild the agent image.
