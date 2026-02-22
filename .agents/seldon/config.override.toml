@@ -13,5 +13,6 @@ allowed_commands = [
   "head",
   "tail",
   "date",
+  "vdirsyncer",
   "vdirsyncer-oauth-setup"
 ]
