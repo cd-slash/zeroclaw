@@ -7,7 +7,9 @@ echo "Starting OAuth setup..."
 
 # Start vdirsyncer discover in background, capture output
 # Use the patched version that handles tailscale proxy
-LOG_FILE="$WORKSPACE_DIR/vdirsyncer_oauth.log"
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/vdirsyncer"
+LOG_FILE="$LOG_DIR/oauth.log"
+mkdir -p "$LOG_DIR"
 touch "$LOG_FILE" 2>/dev/null || true
 chmod 600 "$LOG_FILE" 2>/dev/null || true
 cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee "$LOG_FILE" &
@@ -56,7 +58,8 @@ echo "Original URL: $ORIGINAL_URL"
 
 # Start tailscale serve to proxy the port
 echo "Setting up tailscale serve proxy..."
-tailscale serve --https=8443 http://127.0.0.1:$PORT > /tmp/tailscale.log 2>&1 &
+TAILSCALE_LOG="$LOG_DIR/tailscale.log"
+tailscale serve --https=8443 http://127.0.0.1:$PORT > "$TAILSCALE_LOG" 2>&1 &
 TAILSCALE_PID=$!
 
 echo "tailscale serve PID: $TAILSCALE_PID"
@@ -65,7 +68,7 @@ echo "tailscale serve PID: $TAILSCALE_PID"
 sleep 2
 
 # Extract the tailscale proxy URL from log
-TAILSCALE_URL=$(grep "Available within your tailnet:" /tmp/tailscale.log | tail -1 | grep -oP 'https://[^\s]+')
+TAILSCALE_URL=$(grep "Available within your tailnet:" "$TAILSCALE_LOG" | tail -1 | grep -oP 'https://[^\s]+')
 if [ -z "$TAILSCALE_URL" ]; then
     echo "Could not extract tailscale URL from log"
     kill $TAILSCALE_PID 2>/dev/null
@@ -76,7 +79,8 @@ fi
 TAILSCALE_URL=$(echo "$TAILSCALE_URL" | sed 's|/$||')
 
 # Save to file for the Python patch to read
-echo "$TAILSCALE_URL" > /tmp/tailscale_url.txt
+TAILSCALE_URL_FILE="$LOG_DIR/tailscale_url.txt"
+echo "$TAILSCALE_URL" > "$TAILSCALE_URL_FILE"
 echo "Proxy: $TAILSCALE_URL -> http://127.0.0.1:$PORT"
 
 # Construct the modified OAuth URL with HTTPS redirect URI
