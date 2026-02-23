@@ -15,11 +15,11 @@ LOG_FILE="$LOG_DIR/oauth.log"
 TAILSCALE_LOG="$LOG_DIR/tailscale.log"
 TAILSCALE_URL_FILE="$LOG_DIR/tailscale_url.txt"
 mkdir -p "$LOG_DIR"
-touch "$LOG_FILE" 2>/dev/null || true
-chmod 600 "$LOG_FILE" 2>/dev/null || true
 if [ "$(id -u)" = "0" ]; then
     chown -R 1000:1000 "$LOG_DIR" 2>/dev/null || true
 fi
+touch "$LOG_FILE" 2>/dev/null || true
+chmod 600 "$LOG_FILE" 2>/dev/null || true
 cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee "$LOG_FILE" &
 VDIRSYNCER_PID=$!
 
