@@ -7,7 +7,10 @@ echo "Starting OAuth setup..."
 
 # Start vdirsyncer discover in background, capture output
 # Use the patched version that handles tailscale proxy
-cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee /tmp/vdirsyncer.log &
+LOG_FILE="$WORKSPACE_DIR/vdirsyncer_oauth.log"
+touch "$LOG_FILE" 2>/dev/null || true
+chmod 600 "$LOG_FILE" 2>/dev/null || true
+cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee "$LOG_FILE" &
 VDIRSYNCER_PID=$!
 
 echo "vdirsyncer PID: $VDIRSYNCER_PID"
@@ -17,7 +20,7 @@ echo "Waiting for OAuth URL..."
 TIMEOUT=30
 ELAPSED=0
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    if grep -q "Opening https://accounts.google.com/o/oauth2" /tmp/vdirsyncer.log 2>/dev/null; then
+    if grep -q "Opening https://accounts.google.com/o/oauth2" "$LOG_FILE" 2>/dev/null; then
         break
     fi
     sleep 1
@@ -31,7 +34,7 @@ if [ $ELAPSED -ge $TIMEOUT ]; then
 fi
 
 # Extract the original OAuth URL and port
-ORIGINAL_URL=$(grep "Opening https://accounts.google.com/o/oauth2" /tmp/vdirsyncer.log | tail -1 | sed 's/.*Opening //')
+ORIGINAL_URL=$(grep "Opening https://accounts.google.com/o/oauth2" "$LOG_FILE" | tail -1 | sed 's/.*Opening //')
 
 # Handle both regular and URL-encoded redirect URIs
 if echo "$ORIGINAL_URL" | grep -q "redirect_uri=http%3A%2F%2F"; then
@@ -119,8 +122,8 @@ while kill -0 $VDIRSYNCER_PID 2>/dev/null; do
     fi
 
     # Check if vdirsyncer discovered collections successfully
-    if grep -q "henry_calendar_remote:" /tmp/vdirsyncer.log 2>/dev/null && \
-       ! grep -q "No graphical browser found" /tmp/vdirsyncer.log | tail -1; then
+    if grep -q "henry_calendar_remote:" "$LOG_FILE" 2>/dev/null && \
+       ! grep -q "No graphical browser found" "$LOG_FILE" | tail -1; then
         sleep 2
         if ! kill -0 $VDIRSYNCER_PID 2>/dev/null; then
             echo "vdirsyncer completed successfully"
