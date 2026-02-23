@@ -2,6 +2,9 @@
 # OAuth setup script for vdirsyncer + tailscale serve
 
 WORKSPACE_DIR="${ZEROCLAW_WORKSPACE:-/zeroclaw-data/workspace}"
+HOME_DIR="${HOME:-/zeroclaw-data}"
+export HOME="$HOME_DIR"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME_DIR/.config}"
 
 echo "Starting OAuth setup..."
 
@@ -14,6 +17,9 @@ TAILSCALE_URL_FILE="$LOG_DIR/tailscale_url.txt"
 mkdir -p "$LOG_DIR"
 touch "$LOG_FILE" 2>/dev/null || true
 chmod 600 "$LOG_FILE" 2>/dev/null || true
+if [ "$(id -u)" = "0" ]; then
+    chown -R 1000:1000 "$LOG_DIR" 2>/dev/null || true
+fi
 cd "$WORKSPACE_DIR" && vdirsyncer discover 2>&1 | tee "$LOG_FILE" &
 VDIRSYNCER_PID=$!
 
@@ -33,6 +39,8 @@ done
 
 if [ $ELAPSED -ge $TIMEOUT ]; then
     echo "Timeout: OAuth URL not found"
+    echo "Last log lines:"
+    tail -n 40 "$LOG_FILE" 2>/dev/null || true
     kill $VDIRSYNCER_PID 2>/dev/null
     exit 1
 fi
