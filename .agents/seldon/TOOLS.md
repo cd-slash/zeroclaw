@@ -54,10 +54,9 @@ Env vars (set in `.agents/seldon/.env`):
 
 - `VDIRSYNCER_GOOGLE_CLIENT_ID`
 - `VDIRSYNCER_GOOGLE_CLIENT_SECRET`
-- `VDIRSYNCER_CALDAV_URL`
-- `VDIRSYNCER_CALDAV_USERNAME`
-- `VDIRSYNCER_CALDAV_PASSWORD`
-- `VDIRSYNCER_CONFLICT_RESOLUTION` (optional, default `b wins`)
+
+The container will create or update the Google storage block only. CalDAV storages
+and pairs should be managed directly inside the container.
 
 Template config (written to `~/.config/vdirsyncer/config` inside the container):
 
@@ -65,24 +64,11 @@ Template config (written to `~/.config/vdirsyncer/config` inside the container):
 [general]
 status_path = "~/.config/vdirsyncer/status"
 
-[pair google_calendar]
-a = "google"
-b = "google_local"
-collections = null
-metadata = ["color", "displayname"]
-conflict_resolution = "b wins"
-
 [storage google]
 type = "google_calendar"
 token_file = "~/.config/vdirsyncer/google_token"
 client_id = "<google_oauth_client_id>"
 client_secret = "<google_oauth_client_secret>"
-
-[storage google_local]
-type = "caldav"
-url = "http://127.0.0.1:5232/"
-username = "zeroclaw"
-password = "<local_caldav_password>"
 ```
 
 OAuth flow:

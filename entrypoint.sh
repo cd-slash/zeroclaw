@@ -152,21 +152,13 @@ update_config() {
 ensure_vdirsyncer_config() {
     local client_id="${VDIRSYNCER_GOOGLE_CLIENT_ID:-}"
     local client_secret="${VDIRSYNCER_GOOGLE_CLIENT_SECRET:-}"
-    local caldav_url="${VDIRSYNCER_CALDAV_URL:-}"
-    local caldav_username="${VDIRSYNCER_CALDAV_USERNAME:-}"
-    local caldav_password="${VDIRSYNCER_CALDAV_PASSWORD:-}"
-    local conflict_resolution="${VDIRSYNCER_CONFLICT_RESOLUTION:-b wins}"
-
-    if [ -z "$client_id" ] && [ -z "$client_secret" ] && [ -z "$caldav_url" ] && [ -z "$caldav_username" ] && [ -z "$caldav_password" ]; then
+    if [ -z "$client_id" ] && [ -z "$client_secret" ]; then
         return 0
     fi
 
     local missing=""
     [ -z "$client_id" ] && missing+=" VDIRSYNCER_GOOGLE_CLIENT_ID"
     [ -z "$client_secret" ] && missing+=" VDIRSYNCER_GOOGLE_CLIENT_SECRET"
-    [ -z "$caldav_url" ] && missing+=" VDIRSYNCER_CALDAV_URL"
-    [ -z "$caldav_username" ] && missing+=" VDIRSYNCER_CALDAV_USERNAME"
-    [ -z "$caldav_password" ] && missing+=" VDIRSYNCER_CALDAV_PASSWORD"
 
     if [ -n "$missing" ]; then
         echo "[entrypoint] Skipping vdirsyncer config; missing:$missing"
@@ -177,29 +169,35 @@ ensure_vdirsyncer_config() {
     local config_file="$config_dir/config"
     mkdir -p "$config_dir"
 
-    cat > "$config_file" <<EOF
+    if [ ! -f "$config_file" ]; then
+        cat > "$config_file" <<EOF
 [general]
 status_path = "~/.config/vdirsyncer/status"
-
-[pair google_calendar]
-a = "google"
-b = "google_local"
-collections = null
-metadata = ["color", "displayname"]
-conflict_resolution = "$conflict_resolution"
 
 [storage google]
 type = "google_calendar"
 token_file = "~/.config/vdirsyncer/google_token"
 client_id = "$client_id"
 client_secret = "$client_secret"
-
-[storage google_local]
-type = "caldav"
-url = "$caldav_url"
-username = "$caldav_username"
-password = "$caldav_password"
 EOF
+    else
+        if grep -q "^\[storage google\]" "$config_file"; then
+            sed -i "/^\[storage google\]/,/^\[/ s#^client_id = .*#client_id = \"$client_id\"#" "$config_file"
+            sed -i "/^\[storage google\]/,/^\[/ s#^client_secret = .*#client_secret = \"$client_secret\"#" "$config_file"
+            if ! sed -n "/^\[storage google\]/,/^\[/p" "$config_file" | grep -q "^token_file = "; then
+                sed -i "/^\[storage google\]$/a token_file = \"~/.config/vdirsyncer/google_token\"" "$config_file"
+            fi
+        else
+            cat >> "$config_file" <<EOF
+
+[storage google]
+type = "google_calendar"
+token_file = "~/.config/vdirsyncer/google_token"
+client_id = "$client_id"
+client_secret = "$client_secret"
+EOF
+        fi
+    fi
 
     chmod 600 "$config_file" 2>/dev/null || true
     chown zeroclaw:zeroclaw "$config_file" 2>/dev/null || true
