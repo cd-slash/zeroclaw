@@ -7,8 +7,10 @@ echo "Starting OAuth setup..."
 
 # Start vdirsyncer discover in background, capture output
 # Use the patched version that handles tailscale proxy
-LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/vdirsyncer"
+LOG_DIR="$WORKSPACE_DIR/state/vdirsyncer"
 LOG_FILE="$LOG_DIR/oauth.log"
+TAILSCALE_LOG="$LOG_DIR/tailscale.log"
+TAILSCALE_URL_FILE="$LOG_DIR/tailscale_url.txt"
 mkdir -p "$LOG_DIR"
 touch "$LOG_FILE" 2>/dev/null || true
 chmod 600 "$LOG_FILE" 2>/dev/null || true
@@ -58,7 +60,6 @@ echo "Original URL: $ORIGINAL_URL"
 
 # Start tailscale serve to proxy the port
 echo "Setting up tailscale serve proxy..."
-TAILSCALE_LOG="$LOG_DIR/tailscale.log"
 tailscale serve --https=8443 http://127.0.0.1:$PORT > "$TAILSCALE_LOG" 2>&1 &
 TAILSCALE_PID=$!
 

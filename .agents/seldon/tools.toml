@@ -15,7 +15,7 @@ source = "path"
 path = ".agents/seldon/tools/vdirsyncer_oauth_setup.sh"
 binary = "vdirsyncer-oauth-setup"
 description = "OAuth setup helper for vdirsyncer-proxy"
-sha256 = "38c18cc2a51a70789675d2be18e514e606607a6fc5111430666ef04a78c76728"
+sha256 = "abef2126ea6df0214993d9695ac82b602655d45c9b4c02196fbae68a026b774e"
 
 # [apt]
 [apt]
