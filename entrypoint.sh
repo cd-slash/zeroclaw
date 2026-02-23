@@ -149,6 +149,63 @@ update_config() {
     echo "[entrypoint] Config sync complete"
 }
 
+ensure_vdirsyncer_config() {
+    local client_id="${VDIRSYNCER_GOOGLE_CLIENT_ID:-}"
+    local client_secret="${VDIRSYNCER_GOOGLE_CLIENT_SECRET:-}"
+    local caldav_url="${VDIRSYNCER_CALDAV_URL:-}"
+    local caldav_username="${VDIRSYNCER_CALDAV_USERNAME:-}"
+    local caldav_password="${VDIRSYNCER_CALDAV_PASSWORD:-}"
+    local conflict_resolution="${VDIRSYNCER_CONFLICT_RESOLUTION:-b wins}"
+
+    if [ -z "$client_id" ] && [ -z "$client_secret" ] && [ -z "$caldav_url" ] && [ -z "$caldav_username" ] && [ -z "$caldav_password" ]; then
+        return 0
+    fi
+
+    local missing=""
+    [ -z "$client_id" ] && missing+=" VDIRSYNCER_GOOGLE_CLIENT_ID"
+    [ -z "$client_secret" ] && missing+=" VDIRSYNCER_GOOGLE_CLIENT_SECRET"
+    [ -z "$caldav_url" ] && missing+=" VDIRSYNCER_CALDAV_URL"
+    [ -z "$caldav_username" ] && missing+=" VDIRSYNCER_CALDAV_USERNAME"
+    [ -z "$caldav_password" ] && missing+=" VDIRSYNCER_CALDAV_PASSWORD"
+
+    if [ -n "$missing" ]; then
+        echo "[entrypoint] Skipping vdirsyncer config; missing:$missing"
+        return 0
+    fi
+
+    local config_dir="/zeroclaw-data/.config/vdirsyncer"
+    local config_file="$config_dir/config"
+    mkdir -p "$config_dir"
+
+    cat > "$config_file" <<EOF
+[general]
+status_path = "~/.config/vdirsyncer/status"
+
+[pair google_calendar]
+a = "google"
+b = "google_local"
+collections = null
+metadata = ["color", "displayname"]
+conflict_resolution = "$conflict_resolution"
+
+[storage google]
+type = "google_calendar"
+token_file = "~/.config/vdirsyncer/google_token"
+client_id = "$client_id"
+client_secret = "$client_secret"
+
+[storage google_local]
+type = "caldav"
+url = "$caldav_url"
+username = "$caldav_username"
+password = "$caldav_password"
+EOF
+
+    chmod 600 "$config_file" 2>/dev/null || true
+    chown zeroclaw:zeroclaw "$config_file" 2>/dev/null || true
+    echo "[entrypoint] vdirsyncer config updated"
+}
+
 persist_playwriter_env() {
     local profile_file="/etc/profile.d/zeroclaw-playwriter.sh"
     local host="${PLAYWRITER_HOST:-}"
@@ -419,6 +476,7 @@ seed_agent_config
 apply_agent_config_overrides
 update_config
 persist_playwriter_env
+ensure_vdirsyncer_config
 bootstrap_telegram_channel
 ensure_config_permissions
 

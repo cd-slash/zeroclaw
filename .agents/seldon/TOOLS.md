@@ -48,7 +48,18 @@ If a command is missing, add it to `.agents/seldon/config.override.toml` under
 
 ## Calendar Sync (vdirsyncer + CalDAV)
 
-Template config (place at `~/.config/vdirsyncer/config` inside the container):
+Config can be auto-generated on container start if env vars are set.
+
+Env vars (set in `.agents/seldon/.env`):
+
+- `VDIRSYNCER_GOOGLE_CLIENT_ID`
+- `VDIRSYNCER_GOOGLE_CLIENT_SECRET`
+- `VDIRSYNCER_CALDAV_URL`
+- `VDIRSYNCER_CALDAV_USERNAME`
+- `VDIRSYNCER_CALDAV_PASSWORD`
+- `VDIRSYNCER_CONFLICT_RESOLUTION` (optional, default `b wins`)
+
+Template config (written to `~/.config/vdirsyncer/config` inside the container):
 
 ```ini
 [general]
