@@ -150,8 +150,8 @@ update_config() {
 }
 
 ensure_vdirsyncer_config() {
-    local client_id="${VDIRSYNCER_GOOGLE_CLIENT_ID:-}"
-    local client_secret="${VDIRSYNCER_GOOGLE_CLIENT_SECRET:-}"
+    local client_id="${VDIRSYNCER_GOOGLE_CLIENT_ID:-${VDIRSYNCER_GOOGLE_OAUTH_CLIENT_ID:-}}"
+    local client_secret="${VDIRSYNCER_GOOGLE_CLIENT_SECRET:-${VDIRSYNCER_GOOGLE_OAUTH_CLIENT_SECRET:-}}"
     if [ -z "$client_id" ] && [ -z "$client_secret" ]; then
         return 0
     fi

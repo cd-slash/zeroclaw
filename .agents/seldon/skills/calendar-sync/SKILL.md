@@ -10,6 +10,15 @@ Set up bidirectional sync between Google Calendar and a CalDAV endpoint using vd
 - OAuth client ID/secret for Google Calendar API
 - A CalDAV server endpoint with credentials
 
+## Environment
+
+Set these in `.agents/seldon/.env` (passed into the container):
+
+- `VDIRSYNCER_GOOGLE_CLIENT_ID` (or `VDIRSYNCER_GOOGLE_OAUTH_CLIENT_ID`)
+- `VDIRSYNCER_GOOGLE_CLIENT_SECRET` (or `VDIRSYNCER_GOOGLE_OAUTH_CLIENT_SECRET`)
+
+The container writes/updates the Google storage block in `~/.config/vdirsyncer/config` on startup.
+
 ## Config Template
 
 Create `~/.config/vdirsyncer/config` with:
