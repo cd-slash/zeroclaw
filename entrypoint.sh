@@ -489,6 +489,7 @@ persist_shell_path
 ensure_vdirsyncer_config
 bootstrap_telegram_channel
 ensure_config_permissions
+chown -R zeroclaw:zeroclaw /zeroclaw-data/workspace/state 2>/dev/null || true
 
 # Run agent-specific setup (packages, tools, etc.)
 # This happens once per container start, then is cached
