@@ -9,6 +9,7 @@
 
 services:
   zeroclaw:
+    container_name: ${CONTAINER_NAME:-zeroclaw}
     # image: ghcr.io/zeroclaw-labs/zeroclaw:latest
     # Build locally (dev image includes Tailscale support):
     build:

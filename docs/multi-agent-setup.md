@@ -190,6 +190,121 @@ Preserves data in the agent's volume for restart.
 
 Opens a bash shell inside the agent container for debugging.
 
+### Google Workspace Auth
+
+Use the centralized auth helpers when an agent needs its own Google Workspace login.
+Each agent authenticates individually inside its own container and stores exported
+credentials in its own persistent volume at `/zeroclaw-data/.config/gws/credentials.json`.
+Each agent image also includes `gcloud`, so `gws auth setup` can run inside the container.
+
+By default, `gws-login` now runs on your host machine in a temporary isolated `gws`
+config directory, exports credentials, copies them into the selected agent container,
+and then removes the temporary host credentials. This avoids the localhost callback
+problem and does not overwrite your normal host `gws` auth state. If the selected
+agent is not running on this machine, the credentials/client files are copied over
+Tailscale SSH instead of local Docker exec.
+
+If you already ran `gws-setup` for an agent, `gws-login` will automatically pull that
+agent's `client_secret.json` into the temporary host config before starting login.
+
+```bash
+# Show auth state for all agents
+./scripts/agent.sh gws-status
+
+# Show whether each agent has an OAuth client configured
+./scripts/agent.sh gws-client-show
+
+# Install one desktop OAuth client JSON as the shared base
+./scripts/agent.sh gws-client-base-install ./client_secret.json
+
+# Apply that same client config to all agents
+./scripts/agent.sh gws-client-base-apply --all
+
+# Run the normal interactive gws login flow for one agent
+./scripts/agent.sh gws-login handy
+
+# Override the saved preset and request the full scope set
+./scripts/agent.sh gws-login handy --full
+
+# Or choose a custom service set for this login only
+./scripts/agent.sh gws-login handy -s drive,gmail,sheets,calendar
+
+# Or install an already-exported credentials file manually
+./scripts/agent.sh gws-creds-install handy ./handy-credentials.json
+
+# If you want the one-time setup flow instead
+./scripts/agent.sh gws-setup handy
+
+# Optionally set a non-secret scope preset for future logins
+./scripts/agent.sh gws-config-set handy --scopes drive,gmail,sheets,calendar
+
+# Test that calendar access works
+./scripts/agent.sh gws-test handy
+
+# Open a simple interactive menu
+./scripts/agent.sh gws-menu
+```
+
+Notes:
+- These commands build on top of the existing `gws auth setup` / `gws auth login` flow.
+- `gws-setup` uses `gcloud` inside the container to create/configure the Google OAuth client.
+- `gws-login` uses a host-side temporary config dir so your normal host `gws` auth is untouched.
+- The helper exports credentials after login, imports them into the container, and deletes the temporary host copy.
+- No scope preset is applied by default.
+- Saved presets in `.agents/<agent>/gws.env` are only optional defaults; passing `--full`, `--readonly`, or `-s ...` overrides them for that login.
+- Auth is isolated per agent; logging in `handy` does not grant access to `gordon`.
+- Auth credentials are never copied between agents.
+- If an agent is stopped, the helper starts it automatically before auth.
+
+Typical first-time flow:
+
+```bash
+# 1. Save one downloaded desktop OAuth client JSON as the shared base
+./scripts/agent.sh gws-client-base-install ./client_secret.json
+
+# 2. Apply that client config everywhere
+./scripts/agent.sh gws-client-base-apply --all
+
+# 3. Optionally apply shared scope/project defaults
+./scripts/agent.sh gws-config-base-apply --all
+
+# 4. Authenticate each agent independently
+./scripts/agent.sh gws-login handy
+./scripts/agent.sh gws-login gordon
+```
+
+### Reusing Scope and Project Defaults
+
+If you want a consistent starting point without sharing credentials, store a reusable
+auth config preset. This copies only non-secret settings like scope presets and optional
+project IDs. Each agent still runs its own `gws auth login` afterward.
+
+```bash
+# Set a base config on one source agent only if you want explicit defaults
+./scripts/agent.sh gws-config-set handy --scopes drive,gmail,sheets,calendar --project-id my-project-id
+
+# Copy handy's auth config directly to specific agents
+./scripts/agent.sh gws-config-copy handy gordon giles prime
+
+# Save handy's config as the shared base profile
+./scripts/agent.sh gws-config-base-save handy
+
+# Apply that shared base later to one agent
+./scripts/agent.sh gws-config-base-apply gordon
+
+# Or apply it to all agents
+./scripts/agent.sh gws-config-base-apply --all
+
+# Then authenticate each agent independently
+./scripts/agent.sh gws-login gordon
+```
+
+How to think about it:
+- Use `gws-config-copy` when you want one agent's scope/project defaults to seed other agents.
+- Use `gws-config-base-save` + `gws-config-base-apply` when you want a reusable baseline you can apply later.
+- Agents can still diverge afterward by changing config or running `gws-login` with explicit flags.
+- Config presets influence future login/setup behavior; they do not move auth state, tokens, or credentials between agents.
+
 ### Check Status
 
 ```bash

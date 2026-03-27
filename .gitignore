@@ -35,6 +35,8 @@ credentials.json
 .agents/.*.env
 .agents/*/.env
 .agents/.shared.env
+.agents/.shared.gws/*
+!.agents/.shared.gws/.gitkeep
 .agents/*/.build-tools/*
 !.agents/*/.build-tools/
 !.agents/*/.build-tools/.gitkeep
@@ -42,9 +44,13 @@ credentials.json
 # Ignore skills/tools directories (user-created content)
 .agents/*/skills/*
 !.agents/*/skills/.gitkeep
+!.agents/*/skills/google-calendar/
+!.agents/*/skills/google-calendar/SKILL.md
 !.agents/seldon/skills/calendar-sync/SKILL.md
 !.agents/seldon/skills/playwriter/SKILL.md
+.agents/*/skills/install
 !.agents/seldon/skills.install
+!.agents/*/skills.install
 .agents/*/tools/*
 !.agents/*/tools/.gitkeep
 !.agents/seldon/tools/vdirsyncer_oauth_setup.sh

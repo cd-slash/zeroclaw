@@ -70,6 +70,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     git \
+    gnupg \
     iputils-ping \
     vim \
     jq \
@@ -79,6 +80,13 @@ RUN apt-get update && apt-get install -y \
         tar \
         unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Google Cloud CLI for gws auth setup flows
+RUN mkdir -p /usr/share/keyrings && \
+    curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/google-cloud-cli.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/google-cloud-cli.gpg] https://packages.cloud.google.com/apt cloud-sdk main" > /etc/apt/sources.list.d/google-cloud-cli.list && \
+    apt-get update && apt-get install -y google-cloud-cli && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Tailscale
 RUN curl -fsSL https://tailscale.com/install.sh | sh

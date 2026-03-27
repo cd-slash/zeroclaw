@@ -40,42 +40,32 @@ Example:
 The shell tool can only execute allowlisted commands. Current allowlist:
 
 - `bash`, `bun`, `cargo`, `cat`, `date`, `echo`, `find`, `git`, `grep`, `head`, `ls`, `node`, `npm`,
-  `pwd`, `playwriter`, `python`, `python3`, `pip`, `pip3`, `tail`, `vdirsyncer`,
-  `vdirsyncer-oauth-setup`, `wc`
+  `pwd`, `playwriter`, `gws`, `tail`, `wc`
 
 If a command is missing, add it to `.agents/seldon/config.override.toml` under
 `[autonomy].allowed_commands`, then rebuild the agent image.
 
-## Calendar Sync (vdirsyncer + CalDAV)
+## Calendar Management (Google Workspace CLI)
 
-Config can be auto-generated on container start if env vars are set.
+Use `gws` for Google Calendar access instead of `vdirsyncer`.
 
-Env vars (set in `.agents/seldon/.env`):
+Recommended auth flow:
 
-- `VDIRSYNCER_GOOGLE_CLIENT_ID`
-- `VDIRSYNCER_GOOGLE_CLIENT_SECRET`
+1. Run `gws auth login` in the container.
+2. Complete the browser flow and store credentials under `~/.config/gws`.
+3. Use helper commands like `gws calendar +agenda` and `gws calendar +insert`.
 
-The container will create or update the Google storage block only. CalDAV storages
-and pairs should be managed directly inside the container.
+If you already have exported credentials, point the shell tool at them with:
 
-Template config (written to `~/.config/vdirsyncer/config` inside the container):
+- `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE`
+- `GOOGLE_WORKSPACE_PROJECT_ID` (optional quota/billing override)
 
-```ini
-[general]
-status_path = "~/.config/vdirsyncer/status"
+Useful commands:
 
-[storage google]
-type = "google_calendar"
-token_file = "~/.config/vdirsyncer/google_token"
-client_id = "<google_oauth_client_id>"
-client_secret = "<google_oauth_client_secret>"
-```
-
-OAuth flow:
-
-1. Run `vdirsyncer-oauth-setup` (uses `vdirsyncer discover`).
-2. Complete auth, token saved at `~/.config/vdirsyncer/google_token`.
-3. Run `vdirsyncer sync`.
+- `gws calendar +agenda`
+- `gws calendar +insert --help`
+- `gws calendar events list --help`
+- `gws calendar calendars list`
 
 ## Browser Control (Playwriter)
 

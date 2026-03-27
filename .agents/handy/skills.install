@@ -2,7 +2,6 @@
 set -e
 
 npm install -g @googleworkspace/cli
-npx -y skills add remorses/playwriter
 npx -y skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-shared
 npx -y skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-calendar
 npx -y skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-calendar-agenda

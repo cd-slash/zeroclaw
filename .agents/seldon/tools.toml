@@ -9,17 +9,8 @@
 # description = "Example household helper"
 # sha256 = ""
 
-[[tool]]
-name = "vdirsyncer-oauth-setup"
-source = "path"
-path = ".agents/seldon/tools/vdirsyncer_oauth_setup.sh"
-binary = "vdirsyncer-oauth-setup"
-description = "OAuth setup helper for vdirsyncer-proxy"
-sha256 = "f71b4a8eac5fb6f83f387b35421260d3093af838414c0d03decb7ba57f5fcb68"
-
-# [apt]
 [apt]
-packages = ["vdirsyncer", "python3", "python3-pip", "nodejs", "npm", "python3-caldav"]
+packages = ["nodejs", "npm"]
 
 [bun]
 packages = ["playwriter", "typescript", "tsx"]

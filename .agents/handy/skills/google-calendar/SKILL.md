@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Manage Google Calendar directly with the Google Workspace CLI (`gws`).
+Use Google Workspace CLI (`gws`) to read calendar state, review agendas, and create or update events when appropriate.
 
 ## Prerequisites
 
@@ -55,4 +55,4 @@ gws schema calendar.events.insert
 
 - Prefer `+agenda` for review and `+insert` for new events.
 - Use `--dry-run` when you want to inspect a request before creating or updating events.
-- `gws` returns structured JSON, which makes it a better fit for agent workflows than the old sync setup.
+- `gws` returns structured JSON, which makes it a better fit for agent workflows than older sync-based approaches.

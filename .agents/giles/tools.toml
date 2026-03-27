@@ -13,3 +13,5 @@ description = "Paperless-ngx command-line client for search, upload, and documen
 
 # [bun]
 # packages = ["typescript"]
+[apt]
+packages = ["nodejs", "npm"]
